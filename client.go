@@ -125,10 +125,7 @@ func NewClient(apiServerURL, apiKey string, opts ...Option) (*Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("openrelik: failed to parse API server URL: %w", err)
 	}
-	var apiHost string
-	if u != nil {
-		apiHost = u.Host
-	}
+	apiHost := u.Host
 
 	transport := &TokenRefreshTransport{
 		apiServerURL: apiServerURL,
