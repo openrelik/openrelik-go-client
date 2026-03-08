@@ -76,6 +76,7 @@ func WithHTTPClient(httpClient *http.Client) Option {
 			cl.Transport = &TokenRefreshTransport{
 				apiServerURL: t.apiServerURL,
 				apiHost:      t.apiHost,
+				apiScheme:    t.apiScheme,
 				apiKey:       t.apiKey,
 				base:         base,
 			}
@@ -126,10 +127,12 @@ func NewClient(apiServerURL, apiKey string, opts ...Option) (*Client, error) {
 		return nil, fmt.Errorf("openrelik: failed to parse API server URL: %w", err)
 	}
 	apiHost := u.Host
+	apiScheme := u.Scheme
 
 	transport := &TokenRefreshTransport{
 		apiServerURL: apiServerURL,
 		apiHost:      apiHost,
+		apiScheme:    apiScheme,
 		apiKey:       apiKey,
 		base:         http.DefaultTransport,
 	}
@@ -286,6 +289,7 @@ func (c *Client) Do(req *http.Request, v any) (*http.Response, error) {
 type TokenRefreshTransport struct {
 	apiServerURL string
 	apiHost      string
+	apiScheme    string
 	apiKey       string
 	accessToken  string
 	mu           sync.RWMutex
@@ -298,11 +302,11 @@ func (t *TokenRefreshTransport) RoundTrip(req *http.Request) (*http.Response, er
 	accessToken := t.accessToken
 	t.mu.RUnlock()
 
-	// Only add auth headers if the request host matches the API server host.
+	// Only add auth headers if the request host and scheme match the API server.
 	// We clone the request before adding headers to avoid modifying the original
 	// request and to prevent credentials from being leaked during redirects
 	// (Go's http.Client copies headers from the original request, not the clone).
-	if t.apiHost != "" && req.URL.Host == t.apiHost {
+	if t.apiHost != "" && req.URL.Host == t.apiHost && req.URL.Scheme == t.apiScheme {
 		req = req.Clone(req.Context())
 		if t.apiKey != "" {
 			req.Header.Set("x-openrelik-refresh-token", t.apiKey)
@@ -317,7 +321,7 @@ func (t *TokenRefreshTransport) RoundTrip(req *http.Request) (*http.Response, er
 		return nil, err
 	}
 
-	if resp.StatusCode == http.StatusUnauthorized && t.apiHost != "" && req.URL.Host == t.apiHost {
+	if resp.StatusCode == http.StatusUnauthorized && t.apiHost != "" && req.URL.Host == t.apiHost && req.URL.Scheme == t.apiScheme {
 		refreshURL, err := url.JoinPath(t.apiServerURL, "auth/refresh")
 		if err != nil {
 			return nil, fmt.Errorf("openrelik: could not construct refresh URL: %w", err)

@@ -212,6 +212,26 @@ func TestWithHTTPClient_SideEffects(t *testing.T) {
 			t.Error("Auth header leaked to unrelated host!")
 		}
 	})
+
+	t.Run("Scheme Mismatch (HTTPS -> HTTP)", func(t *testing.T) {
+		// Configure client for HTTPS
+		client, _ := NewClient("https://openrelik.local", "test-key")
+		
+		var lastReq *http.Request
+		recorder := RoundTripFunc(func(req *http.Request) (*http.Response, error) {
+			lastReq = req
+			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(nil)}, nil
+		})
+		client.HTTPClient.Transport.(*TokenRefreshTransport).base = recorder
+
+		// Request to same host but using HTTP
+		req, _ := http.NewRequest(http.MethodGet, "http://openrelik.local/api/v1/test", nil)
+		client.HTTPClient.Do(req)
+
+		if lastReq.Header.Get("x-openrelik-refresh-token") != "" {
+			t.Error("Auth header leaked to insecure HTTP connection on same host!")
+		}
+	})
 }
 
 func TestRoundTrip_RedirectLeakage(t *testing.T) {
