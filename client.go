@@ -292,7 +292,10 @@ func (t *TokenRefreshTransport) RoundTrip(req *http.Request) (*http.Response, er
 	}
 
 	if resp.StatusCode == http.StatusUnauthorized {
-		refreshURL, _ := url.JoinPath(t.apiServerURL, "auth/refresh")
+		refreshURL, err := url.JoinPath(t.apiServerURL, "auth/refresh")
+		if err != nil {
+			return resp, fmt.Errorf("openrelik: invalid refresh URL: %w", err)
+		}
 		if req.URL.String() == refreshURL {
 			return resp, nil
 		}
@@ -332,8 +335,11 @@ func (t *TokenRefreshTransport) refreshIfStale(failedToken string) (string, erro
 		return t.accessToken, nil
 	}
 
-	refreshURL, _ := url.JoinPath(t.apiServerURL, "auth/refresh")
-	req, err := http.NewRequest(http.MethodGet, refreshURL, nil)
+	refreshURL, err := url.JoinPath(t.apiServerURL, "auth/refresh")
+	if err != nil {
+		return "", fmt.Errorf("openrelik: invalid refresh URL: %w", err)
+	}
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, refreshURL, nil)
 	if err != nil {
 		return "", err
 	}
