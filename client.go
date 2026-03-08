@@ -71,15 +71,21 @@ func WithHTTPClient(httpClient *http.Client) Option {
 			base = http.DefaultTransport
 		}
 
-		// Preserve auth configuration from the default transport
+		// Preserve existing TokenRefreshTransport configuration if present
+		var apiServerURL, apiHost, apiScheme, apiKey string
 		if t, ok := c.HTTPClient.Transport.(*TokenRefreshTransport); ok {
-			cl.Transport = &TokenRefreshTransport{
-				apiServerURL: t.apiServerURL,
-				apiHost:      t.apiHost,
-				apiScheme:    t.apiScheme,
-				apiKey:       t.apiKey,
-				base:         base,
-			}
+			apiServerURL = t.apiServerURL
+			apiHost = t.apiHost
+			apiScheme = t.apiScheme
+			apiKey = t.apiKey
+		}
+
+		cl.Transport = &TokenRefreshTransport{
+			apiServerURL: apiServerURL,
+			apiHost:      apiHost,
+			apiScheme:    apiScheme,
+			apiKey:       apiKey,
+			base:         base,
 		}
 
 		c.HTTPClient = &cl
@@ -95,7 +101,28 @@ func WithBaseTransport(base http.RoundTripper) Option {
 		}
 		if t, ok := c.HTTPClient.Transport.(*TokenRefreshTransport); ok {
 			t.base = base
+		} else {
+			// If not already a TokenRefreshTransport, we wrap it.
+			// This handles cases where WithBaseTransport is called before/without NewClient defaults.
+			c.HTTPClient.Transport = &TokenRefreshTransport{
+				base: base,
+			}
 		}
+	}
+}
+
+// WithUserAgent sets the User-Agent header for the client.
+func WithUserAgent(ua string) Option {
+	return func(c *Client) {
+		c.UserAgent = ua
+	}
+}
+
+// WithMaxResponseSize sets the maximum size in bytes that the response body can be.
+// If 0, no limit is applied.
+func WithMaxResponseSize(size int64) Option {
+	return func(c *Client) {
+		c.MaxResponseSize = size
 	}
 }
 
@@ -204,10 +231,17 @@ func (c *Client) NewRequest(ctx context.Context, method, endpoint string, body a
 	if err != nil {
 		return nil, err
 	}
-	u.Path, err = url.JoinPath(u.Path, endpoint)
+
+	// Ensure endpoint doesn't escape the BaseURL path.
+	// JoinPath cleans the path, so we check if the result still has the BaseURL path as prefix.
+	fullPath, err := url.JoinPath(u.Path, endpoint)
 	if err != nil {
 		return nil, err
 	}
+	if !path.IsAbs(fullPath) || (u.Path != "/" && !bytes.HasPrefix([]byte(fullPath), []byte(u.Path))) {
+		return nil, fmt.Errorf("openrelik: invalid endpoint: %s", endpoint)
+	}
+	u.Path = fullPath
 
 	var buf io.ReadSeeker
 	if body != nil {

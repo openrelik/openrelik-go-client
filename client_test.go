@@ -82,6 +82,20 @@ func TestNewClient(t *testing.T) {
 		}
 	})
 
+	t.Run("WithUserAgent", func(t *testing.T) {
+		client, _ := NewClient("http://localhost", "key", WithUserAgent("custom-ua"))
+		if client.UserAgent != "custom-ua" {
+			t.Errorf("Expected custom-ua, got %s", client.UserAgent)
+		}
+	})
+
+	t.Run("WithMaxResponseSize", func(t *testing.T) {
+		client, _ := NewClient("http://localhost", "key", WithMaxResponseSize(1234))
+		if client.MaxResponseSize != 1234 {
+			t.Errorf("Expected 1234, got %d", client.MaxResponseSize)
+		}
+	})
+
 	t.Run("Invalid URL", func(t *testing.T) {
 		_, err := NewClient(":", "key")
 		if err == nil {
@@ -367,6 +381,20 @@ func TestNewRequest(t *testing.T) {
 		_, err := c.NewRequest(ctx, http.MethodPost, "/test", make(chan int))
 		if err == nil {
 			t.Error("Expected error for invalid JSON body type")
+		}
+	})
+
+	t.Run("Path Traversal", func(t *testing.T) {
+		endpoints := []string{
+			"../secret",
+			"/../secret",
+			"test/../../secret",
+		}
+		for _, e := range endpoints {
+			_, err := c.NewRequest(ctx, http.MethodGet, e, nil)
+			if err == nil {
+				t.Errorf("Expected error for path traversal endpoint: %s", e)
+			}
 		}
 	})
 }
