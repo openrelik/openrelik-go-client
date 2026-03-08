@@ -113,6 +113,41 @@ func TestWithHTTPClient_SideEffects(t *testing.T) {
 	})
 }
 
+func TestRoundTrip_RedirectLeakage(t *testing.T) {
+	// Start two servers: one representing OpenRelik, one representing an external host.
+	externalServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("x-openrelik-refresh-token") != "" {
+			t.Error("Auth header leaked to external host!")
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer externalServer.Close()
+
+	relikServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Verify auth header is present on the initial request.
+		if r.Header.Get("x-openrelik-refresh-token") != "test-key" {
+			t.Error("Missing auth header on initial request")
+		}
+		// Redirect to external host.
+		http.Redirect(w, r, externalServer.URL, http.StatusFound)
+	}))
+	defer relikServer.Close()
+
+	client := NewClient(relikServer.URL, "test-key")
+	
+	ctx := context.Background()
+	req, _ := client.NewRequest(ctx, http.MethodGet, "/redirect", nil)
+	resp, err := client.Do(req, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("Expected 200 OK from final destination, got %d", resp.StatusCode)
+	}
+}
+
 type requestRecorder struct {
 	base    http.RoundTripper
 	sampled bool

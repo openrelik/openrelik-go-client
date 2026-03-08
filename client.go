@@ -68,6 +68,7 @@ func WithHTTPClient(httpClient *http.Client) Option {
 		if t, ok := c.HTTPClient.Transport.(*TokenRefreshTransport); ok {
 			cl.Transport = &TokenRefreshTransport{
 				apiServerURL: t.apiServerURL,
+				apiHost:      t.apiHost,
 				apiKey:       t.apiKey,
 				base:         base,
 			}
@@ -110,8 +111,15 @@ func WithVersion(version string) Option {
 func NewClient(apiServerURL, apiKey string, opts ...Option) *Client {
 	baseURL, _ := url.JoinPath(apiServerURL, "api", defaultAPIVersion)
 
+	u, _ := url.Parse(apiServerURL)
+	var apiHost string
+	if u != nil {
+		apiHost = u.Host
+	}
+
 	transport := &TokenRefreshTransport{
 		apiServerURL: apiServerURL,
+		apiHost:      apiHost,
 		apiKey:       apiKey,
 		base:         http.DefaultTransport,
 	}
@@ -240,6 +248,7 @@ func (c *Client) Do(req *http.Request, v any) (*http.Response, error) {
 // TokenRefreshTransport handles automatic auth and concurrent token refresh.
 type TokenRefreshTransport struct {
 	apiServerURL string
+	apiHost      string
 	apiKey       string
 	accessToken  string
 	mu           sync.RWMutex
@@ -253,8 +262,11 @@ func (t *TokenRefreshTransport) RoundTrip(req *http.Request) (*http.Response, er
 	t.mu.RUnlock()
 
 	// Only add auth headers if the request host matches the API server host.
-	u, err := url.Parse(t.apiServerURL)
-	if err == nil && req.URL.Host == u.Host {
+	// We clone the request before adding headers to avoid modifying the original
+	// request and to prevent credentials from being leaked during redirects
+	// (Go's http.Client copies headers from the original request, not the clone).
+	if t.apiHost != "" && req.URL.Host == t.apiHost {
+		req = req.Clone(req.Context())
 		if t.apiKey != "" {
 			req.Header.Set("x-openrelik-refresh-token", t.apiKey)
 		}
