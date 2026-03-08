@@ -30,6 +30,7 @@ import (
 const defaultAPIVersion = "v1"
 const userAgent = "openrelik-go-client/1.0"
 const tokenRefreshTimeout = 10 * time.Second
+const defaultMaxResponseSize = 10 * 1024 * 1024 // 10MB
 
 // A Client is a reusable API client for OpenRelik.
 type Client struct {
@@ -41,6 +42,10 @@ type Client struct {
 
 	// UserAgent is the string sent in the User-Agent header.
 	UserAgent string
+
+	// MaxResponseSize is the maximum size in bytes that the response body can be.
+	// If 0, no limit is applied. Defaults to 10MB.
+	MaxResponseSize int64
 
 	// Services used for communicating with different parts of the OpenRelik API.
 	Users *UsersService
@@ -137,7 +142,8 @@ func NewClient(apiServerURL, apiKey string, opts ...Option) (*Client, error) {
 		HTTPClient: &http.Client{
 			Transport: transport,
 		},
-		UserAgent: userAgent,
+		UserAgent:       userAgent,
+		MaxResponseSize: defaultMaxResponseSize,
 	}
 
 	for _, opt := range opts {
@@ -235,13 +241,24 @@ func (c *Client) Do(req *http.Request, v any) (*http.Response, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer resp.Body.Close()
 
-	// Read body into memory to allow inspection if decoding fails
-	data, err := io.ReadAll(resp.Body)
-	resp.Body.Close()
+	// Read body into memory to allow inspection if decoding fails.
+	// We use a LimitedReader to prevent OOM if the response is too large.
+	var reader io.Reader = resp.Body
+	if c.MaxResponseSize > 0 {
+		reader = io.LimitReader(resp.Body, c.MaxResponseSize+1)
+	}
+
+	data, err := io.ReadAll(reader)
 	if err != nil {
 		return resp, err
 	}
+
+	if c.MaxResponseSize > 0 && int64(len(data)) > c.MaxResponseSize {
+		return resp, fmt.Errorf("openrelik: response body too large (limit %d bytes)", c.MaxResponseSize)
+	}
+
 	// Re-populate the body so the caller can still read it
 	resp.Body = io.NopCloser(bytes.NewBuffer(data))
 

@@ -35,6 +35,9 @@ func TestNewClient(t *testing.T) {
 		if client.BaseURL != expectedBase {
 			t.Errorf("Expected %s, got %s", expectedBase, client.BaseURL)
 		}
+		if client.MaxResponseSize != defaultMaxResponseSize {
+			t.Errorf("Expected default MaxResponseSize %d, got %d", defaultMaxResponseSize, client.MaxResponseSize)
+		}
 	})
 
 	t.Run("WithVersion", func(t *testing.T) {
@@ -83,6 +86,71 @@ func TestNewClient(t *testing.T) {
 		_, err := NewClient(":", "key")
 		if err == nil {
 			t.Error("Expected error for invalid URL, got nil")
+		}
+	})
+}
+
+func TestMaxResponseSize(t *testing.T) {
+	mux := http.NewServeMux()
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	client, err := NewClient(server.URL, "key")
+	if err != nil {
+		t.Fatalf("NewClient failed: %v", err)
+	}
+	// Set a very small limit for testing
+	client.MaxResponseSize = 5
+	ctx := context.Background()
+
+	t.Run("Response too large", func(t *testing.T) {
+		mux.HandleFunc("/api/v1/too-large", func(w http.ResponseWriter, r *http.Request) {
+			fmt.Fprint(w, "this is more than 5 bytes")
+		})
+
+		req, _ := client.NewRequest(ctx, http.MethodGet, "/too-large", nil)
+		_, err := client.Do(req, nil)
+		if err == nil {
+			t.Fatal("Expected error for response exceeding MaxResponseSize")
+		}
+		expectedErr := "openrelik: response body too large (limit 5 bytes)"
+		if err.Error() != expectedErr {
+			t.Errorf("Expected error %q, got %q", expectedErr, err.Error())
+		}
+	})
+
+	t.Run("Response within limit", func(t *testing.T) {
+		mux.HandleFunc("/api/v1/within-limit", func(w http.ResponseWriter, r *http.Request) {
+			fmt.Fprint(w, "12345")
+		})
+
+		req, _ := client.NewRequest(ctx, http.MethodGet, "/within-limit", nil)
+		resp, err := client.Do(req, nil)
+		if err != nil {
+			t.Fatalf("Unexpected error: %v", err)
+		}
+		defer resp.Body.Close()
+		body, _ := io.ReadAll(resp.Body)
+		if string(body) != "12345" {
+			t.Errorf("Expected '12345', got %q", string(body))
+		}
+	})
+
+	t.Run("Unlimited (MaxResponseSize = 0)", func(t *testing.T) {
+		client.MaxResponseSize = 0
+		mux.HandleFunc("/api/v1/unlimited", func(w http.ResponseWriter, r *http.Request) {
+			fmt.Fprint(w, "this is now allowed")
+		})
+
+		req, _ := client.NewRequest(ctx, http.MethodGet, "/unlimited", nil)
+		resp, err := client.Do(req, nil)
+		if err != nil {
+			t.Fatalf("Unexpected error: %v", err)
+		}
+		defer resp.Body.Close()
+		body, _ := io.ReadAll(resp.Body)
+		if string(body) != "this is now allowed" {
+			t.Errorf("Expected 'this is now allowed', got %q", string(body))
 		}
 	})
 }
