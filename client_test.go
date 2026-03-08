@@ -87,6 +87,17 @@ func TestNewClient(t *testing.T) {
 	})
 }
 
+func TestWithVersion_Panic(t *testing.T) {
+	defer func() {
+		if r := recover(); r == nil {
+			t.Errorf("WithVersion did not panic on invalid BaseURL")
+		}
+	}()
+
+	client := &Client{BaseURL: ":"}
+	WithVersion("v2")(client)
+}
+
 func TestWithHTTPClient_SideEffects(t *testing.T) {
 	// 1. Original client should not be modified
 	originalTransport := &http.Transport{}

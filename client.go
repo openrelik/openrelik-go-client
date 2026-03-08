@@ -96,7 +96,7 @@ func WithVersion(version string) Option {
 	return func(c *Client) {
 		u, err := url.Parse(c.BaseURL)
 		if err != nil {
-			return
+			panic(fmt.Sprintf("openrelik: failed to parse BaseURL in WithVersion: %v", err))
 		}
 		// Replace the last element of the path with the new version.
 		// e.g. /api/v1 -> /api/v2
