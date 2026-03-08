@@ -54,7 +54,11 @@ func main() {
 		fmt.Printf("Error: %v\n", errRaw)
 	} else {
 		defer respRaw.Body.Close()
-		body, _ := io.ReadAll(respRaw.Body)
+		body, err := io.ReadAll(respRaw.Body)
+		if err != nil {
+			log.Printf("Error reading raw body: %v\n", err)
+			return
+		}
 		fmt.Printf("Raw JSON Body: %s\n\n", string(body))
 	}
 }
