@@ -108,10 +108,16 @@ func WithVersion(version string) Option {
 // NewClient initializes a new OpenRelik client with functional options.
 // apiServerURL: The root URL of the OpenRelik server (e.g., http://localhost:8710).
 // apiKey: The long-lived refresh token used for authentication.
-func NewClient(apiServerURL, apiKey string, opts ...Option) *Client {
-	baseURL, _ := url.JoinPath(apiServerURL, "api", defaultAPIVersion)
+func NewClient(apiServerURL, apiKey string, opts ...Option) (*Client, error) {
+	baseURL, err := url.JoinPath(apiServerURL, "api", defaultAPIVersion)
+	if err != nil {
+		return nil, fmt.Errorf("openrelik: invalid API server URL: %w", err)
+	}
 
-	u, _ := url.Parse(apiServerURL)
+	u, err := url.Parse(apiServerURL)
+	if err != nil {
+		return nil, fmt.Errorf("openrelik: failed to parse API server URL: %w", err)
+	}
 	var apiHost string
 	if u != nil {
 		apiHost = u.Host
@@ -139,7 +145,7 @@ func NewClient(apiServerURL, apiKey string, opts ...Option) *Client {
 	// Initialize services
 	c.Users = &UsersService{client: c}
 
-	return c
+	return c, nil
 }
 
 // --- Low-Level HTTP Methods ---

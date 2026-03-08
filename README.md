@@ -24,7 +24,10 @@ func main() {
 	// Initialize the client
 	// apiServerURL: The root URL of the OpenRelik server.
 	// apiKey: The API token used for authentication.
-	client := openrelik.NewClient("http://localhost:8710", "your-api-token")
+	client, err := openrelik.NewClient("http://localhost:8710", "your-api-token")
+	if err != nil {
+		log.Fatalf("Failed to create client: %v", err)
+	}
 
 	// Retrieve the currently authenticated user profile
 	user, _, err := client.Users.GetMe(context.Background())
@@ -56,11 +59,14 @@ customTransport := &http.Transport{
     Proxy: http.ProxyURL(proxyURL),
 }
 
-client := openrelik.NewClient(
+client, err := openrelik.NewClient(
     "http://localhost:8710",
     "your-api-key",
     openrelik.WithBaseTransport(customTransport),
 )
+if err != nil {
+    log.Fatalf("Failed to create client: %v", err)
+}
 ```
 
 #### Custom HTTP Client
@@ -69,9 +75,12 @@ customClient := &http.Client{
     Timeout: 30 * time.Second,
 }
 
-client := openrelik.NewClient(
+client, err := openrelik.NewClient(
     "http://localhost:8710",
     "your-api-key",
     openrelik.WithHTTPClient(customClient),
 )
+if err != nil {
+    log.Fatalf("Failed to create client: %v", err)
+}
 ```

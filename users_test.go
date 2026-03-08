@@ -25,7 +25,7 @@ import (
 func setupUsersTestServer() (mux *http.ServeMux, server *httptest.Server, client *Client) {
 	mux = http.NewServeMux()
 	server = httptest.NewServer(mux)
-	client = NewClient(server.URL, "test-key")
+	client, _ = NewClient(server.URL, "test-key")
 	return
 }
 

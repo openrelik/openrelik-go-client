@@ -27,7 +27,10 @@ import (
 
 func TestNewClient(t *testing.T) {
 	t.Run("Default Client", func(t *testing.T) {
-		client := NewClient("http://localhost:8080", "test-key")
+		client, err := NewClient("http://localhost:8080", "test-key")
+		if err != nil {
+			t.Fatalf("NewClient failed: %v", err)
+		}
 		expectedBase := "http://localhost:8080/api/v1"
 		if client.BaseURL != expectedBase {
 			t.Errorf("Expected %s, got %s", expectedBase, client.BaseURL)
@@ -35,7 +38,10 @@ func TestNewClient(t *testing.T) {
 	})
 
 	t.Run("WithVersion", func(t *testing.T) {
-		client := NewClient("http://localhost:8080", "test-key", WithVersion("v2"))
+		client, err := NewClient("http://localhost:8080", "test-key", WithVersion("v2"))
+		if err != nil {
+			t.Fatalf("NewClient failed: %v", err)
+		}
 		expectedBase := "http://localhost:8080/api/v2"
 		if client.BaseURL != expectedBase {
 			t.Errorf("Expected %s, got %s", expectedBase, client.BaseURL)
@@ -44,7 +50,10 @@ func TestNewClient(t *testing.T) {
 
 	t.Run("WithHTTPClient", func(t *testing.T) {
 		custom := &http.Client{Timeout: 42 * time.Second}
-		client := NewClient("http://localhost", "key", WithHTTPClient(custom))
+		client, err := NewClient("http://localhost", "key", WithHTTPClient(custom))
+		if err != nil {
+			t.Fatalf("NewClient failed: %v", err)
+		}
 		if client.HTTPClient.Timeout != 42*time.Second {
 			t.Errorf("Expected 42s timeout, got %v", client.HTTPClient.Timeout)
 		}
@@ -56,7 +65,10 @@ func TestNewClient(t *testing.T) {
 
 	t.Run("WithBaseTransport", func(t *testing.T) {
 		recorder := &requestRecorder{base: http.DefaultTransport}
-		client := NewClient("http://localhost", "key", WithBaseTransport(recorder))
+		client, err := NewClient("http://localhost", "key", WithBaseTransport(recorder))
+		if err != nil {
+			t.Fatalf("NewClient failed: %v", err)
+		}
 		
 		transport, ok := client.HTTPClient.Transport.(*TokenRefreshTransport)
 		if !ok {
@@ -64,6 +76,13 @@ func TestNewClient(t *testing.T) {
 		}
 		if transport.base != recorder {
 			t.Error("Expected base transport to be our recorder")
+		}
+	})
+
+	t.Run("Invalid URL", func(t *testing.T) {
+		_, err := NewClient(":", "key")
+		if err == nil {
+			t.Error("Expected error for invalid URL, got nil")
 		}
 	})
 }
@@ -76,7 +95,10 @@ func TestWithHTTPClient_SideEffects(t *testing.T) {
 		Transport: originalTransport,
 	}
 
-	client := NewClient("http://openrelik.local", "test-key", WithHTTPClient(custom))
+	client, err := NewClient("http://openrelik.local", "test-key", WithHTTPClient(custom))
+	if err != nil {
+		t.Fatalf("NewClient failed: %v", err)
+	}
 
 	if custom.Transport != originalTransport {
 		t.Error("Original client's Transport was modified!")
@@ -133,7 +155,10 @@ func TestRoundTrip_RedirectLeakage(t *testing.T) {
 	}))
 	defer relikServer.Close()
 
-	client := NewClient(relikServer.URL, "test-key")
+	client, err := NewClient(relikServer.URL, "test-key")
+	if err != nil {
+		t.Fatalf("NewClient failed: %v", err)
+	}
 	
 	ctx := context.Background()
 	req, _ := client.NewRequest(ctx, http.MethodGet, "/redirect", nil)
@@ -159,7 +184,10 @@ func (r *requestRecorder) RoundTrip(req *http.Request) (*http.Response, error) {
 }
 
 func TestNewRequest(t *testing.T) {
-	c := NewClient("http://localhost", "key")
+	c, err := NewClient("http://localhost", "key")
+	if err != nil {
+		t.Fatalf("NewClient failed: %v", err)
+	}
 	ctx := context.Background()
 
 	t.Run("With Body", func(t *testing.T) {
@@ -208,7 +236,10 @@ func TestDo(t *testing.T) {
 	server := httptest.NewServer(mux)
 	defer server.Close()
 
-	client := NewClient(server.URL, "key")
+	client, err := NewClient(server.URL, "key")
+	if err != nil {
+		t.Fatalf("NewClient failed: %v", err)
+	}
 	ctx := context.Background()
 
 	t.Run("Success with Decode", func(t *testing.T) {
@@ -288,7 +319,10 @@ func TestTokenRefresh(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	client := NewClient(server.URL, "valid-key")
+	client, err := NewClient(server.URL, "valid-key")
+	if err != nil {
+		t.Fatalf("NewClient failed: %v", err)
+	}
 	ctx := context.Background()
 
 	// First call triggers 401 -> refresh -> retry
@@ -311,7 +345,10 @@ func TestClient_LowLevelMethods(t *testing.T) {
 	server := httptest.NewServer(mux)
 	defer server.Close()
 
-	client := NewClient(server.URL, "key")
+	client, err := NewClient(server.URL, "key")
+	if err != nil {
+		t.Fatalf("NewClient failed: %v", err)
+	}
 	ctx := context.Background()
 
 	type testResource struct {
@@ -388,7 +425,10 @@ func TestClient_Errors(t *testing.T) {
 	server := httptest.NewServer(mux)
 	defer server.Close()
 
-	client := NewClient(server.URL, "key")
+	client, err := NewClient(server.URL, "key")
+	if err != nil {
+		t.Fatalf("NewClient failed: %v", err)
+	}
 	ctx := context.Background()
 
 	t.Run("Invalid JSON Response", func(t *testing.T) {
@@ -415,7 +455,7 @@ func TestClient_Errors(t *testing.T) {
 	})
 
 	t.Run("Network Error", func(t *testing.T) {
-		client := NewClient("http://localhost", "key")
+		client, _ := NewClient("http://localhost", "key")
 		client.HTTPClient.Transport.(*TokenRefreshTransport).base = &errorTransport{}
 		_, err := client.Get(ctx, "/test", nil)
 		if err == nil {

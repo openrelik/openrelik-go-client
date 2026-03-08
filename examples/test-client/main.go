@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 
 	openrelik "github.com/openrelik/openrelik-go-client"
 )
@@ -14,7 +15,10 @@ func main() {
 	ctx := context.Background()
 
 	// Create a new client instance
-	client := openrelik.NewClient(apiServerURL, apiKey)
+	client, err := openrelik.NewClient(apiServerURL, apiKey)
+	if err != nil {
+		log.Fatalf("Failed to create OpenRelik client: %v", err)
+	}
 
 	// Using High-Level Service Pattern
 	// This abstracts away the HTTP details and directly returns typed structs.
@@ -35,7 +39,7 @@ func main() {
 	// This allows you to use the same method for any endpoint, but you need to provide the struct.
 	fmt.Println("\n--- Low-Level Abstraction ---")
 	user := &openrelik.User{}
-	_, err := client.Get(ctx, "/users/me/", user)
+	_, err = client.Get(ctx, "/users/me/", user)
 	if err != nil {
 		fmt.Printf("Error (expected if server down): %v\n", err)
 	} else {
