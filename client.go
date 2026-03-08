@@ -234,16 +234,21 @@ func (c *Client) Do(req *http.Request, v any) (*http.Response, error) {
 		return nil, err
 	}
 
+	// Read body into memory to allow inspection if decoding fails
+	data, err := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if err != nil {
+		return resp, err
+	}
+	// Re-populate the body so the caller can still read it
+	resp.Body = io.NopCloser(bytes.NewBuffer(data))
+
 	if resp.StatusCode >= 400 {
-		if v != nil {
-			resp.Body.Close()
-		}
 		return resp, fmt.Errorf("openrelik: api error: %s", resp.Status)
 	}
 
 	if v != nil {
-		defer resp.Body.Close()
-		if err := json.NewDecoder(resp.Body).Decode(v); err != nil {
+		if err := json.Unmarshal(data, v); err != nil {
 			return resp, err
 		}
 	}

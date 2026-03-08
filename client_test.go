@@ -302,6 +302,35 @@ func TestDo(t *testing.T) {
 			t.Error("Expected error for 400 status code")
 		}
 	})
+
+	t.Run("Preserve Body on Decode Error", func(t *testing.T) {
+		mux.HandleFunc("/api/v1/bad-json", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			fmt.Fprint(w, `{"id": "not-a-number"}`)
+		})
+
+		type data struct {
+			ID int `json:"id"`
+		}
+		var d data
+		req, _ := client.NewRequest(ctx, http.MethodGet, "/bad-json", nil)
+		resp, err := client.Do(req, &d)
+		if err == nil {
+			t.Fatal("Expected error for invalid JSON, got nil")
+		}
+
+		if resp == nil {
+			t.Fatal("Expected response to be returned even on decode error")
+		}
+
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			t.Fatalf("Failed to read response body after decode error: %v", err)
+		}
+		if string(body) != `{"id": "not-a-number"}` {
+			t.Errorf("Unexpected body content: %s", string(body))
+		}
+	})
 }
 
 func TestTokenRefresh(t *testing.T) {
@@ -411,7 +440,7 @@ func TestClient_LowLevelMethods(t *testing.T) {
 
 	t.Run("Patch", func(t *testing.T) {
 		var res testResource
-		_, err := client.Patch(ctx, "/test", map[string]string{"name": "patch"}, &res)
+		_ , err := client.Patch(ctx, "/test", map[string]string{"name": "patch"}, &res)
 		if err != nil {
 			t.Fatal(err)
 		}
