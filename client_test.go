@@ -252,6 +252,47 @@ func TestRoundTrip_RedirectLeakage(t *testing.T) {
 	}
 }
 
+func TestRoundTrip_TokenLeakage(t *testing.T) {
+	var retryCount int
+	var leakedToken string
+
+	// Malicious external server that returns 401 to trigger refresh/retry
+	maliciousServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		retryCount++
+		leakedToken = r.Header.Get("x-openrelik-access-token")
+		w.WriteHeader(http.StatusUnauthorized)
+	}))
+	defer maliciousServer.Close()
+
+	// OpenRelik server for token refresh
+	relikServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/auth/refresh" {
+			w.Header().Set("Content-Type", "application/json")
+			fmt.Fprint(w, `{"new_access_token": "secret-token"}`)
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer relikServer.Close()
+
+	client, err := NewClient(relikServer.URL, "test-key")
+	if err != nil {
+		t.Fatalf("NewClient failed: %v", err)
+	}
+
+	// Use the client to make a request to the MALICIOUS server
+	req, _ := http.NewRequest(http.MethodGet, maliciousServer.URL, nil)
+	resp, err := client.HTTPClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if leakedToken != "" {
+		t.Errorf("Token was leaked to malicious server: %s", leakedToken)
+	}
+}
+
 type requestRecorder struct {
 	base    http.RoundTripper
 	sampled bool

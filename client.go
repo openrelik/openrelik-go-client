@@ -320,7 +320,7 @@ func (t *TokenRefreshTransport) RoundTrip(req *http.Request) (*http.Response, er
 		return nil, err
 	}
 
-	if resp.StatusCode == http.StatusUnauthorized {
+	if resp.StatusCode == http.StatusUnauthorized && t.apiHost != "" && req.URL.Host == t.apiHost {
 		refreshURL, err := url.JoinPath(t.apiServerURL, "auth/refresh")
 		if err != nil {
 			return nil, fmt.Errorf("openrelik: could not construct refresh URL: %w", err)
