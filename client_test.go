@@ -369,6 +369,14 @@ func TestDo(t *testing.T) {
 		if err == nil {
 			t.Error("Expected error for 400 status code")
 		}
+
+		var apiErr *Error
+		if !errors.As(err, &apiErr) {
+			t.Fatalf("Expected error to be of type *Error, got %T", err)
+		}
+		if apiErr.Response.StatusCode != http.StatusBadRequest {
+			t.Errorf("Expected status code 400, got %d", apiErr.Response.StatusCode)
+		}
 	})
 
 	t.Run("Preserve Body on Decode Error", func(t *testing.T) {

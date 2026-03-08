@@ -235,6 +235,16 @@ func (c *Client) NewRequest(ctx context.Context, method, endpoint string, body a
 	return req, nil
 }
 
+// Error represents an error returned by the OpenRelik API.
+type Error struct {
+	// Response is the HTTP response that caused the error.
+	Response *http.Response
+}
+
+func (e *Error) Error() string {
+	return fmt.Sprintf("openrelik: api error: %s", e.Response.Status)
+}
+
 // Do executes the HTTP request and decodes the response into v if provided.
 func (c *Client) Do(req *http.Request, v any) (*http.Response, error) {
 	resp, err := c.HTTPClient.Do(req)
@@ -263,7 +273,7 @@ func (c *Client) Do(req *http.Request, v any) (*http.Response, error) {
 	resp.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if resp.StatusCode >= 400 {
-		return resp, fmt.Errorf("openrelik: api error: %s", resp.Status)
+		return resp, &Error{Response: resp}
 	}
 
 	if v != nil {
