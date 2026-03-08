@@ -24,10 +24,12 @@ import (
 	"net/url"
 	"path"
 	"sync"
+	"time"
 )
 
 const defaultAPIVersion = "v1"
 const userAgent = "openrelik-go-client/1.0"
+const tokenRefreshTimeout = 10 * time.Second
 
 // A Client is a reusable API client for OpenRelik.
 type Client struct {
@@ -339,7 +341,11 @@ func (t *TokenRefreshTransport) refreshIfStale(failedToken string) (string, erro
 	if err != nil {
 		return "", fmt.Errorf("openrelik: invalid refresh URL: %w", err)
 	}
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, refreshURL, nil)
+
+	ctx, cancel := context.WithTimeout(context.Background(), tokenRefreshTimeout)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, refreshURL, nil)
 	if err != nil {
 		return "", err
 	}
