@@ -213,7 +213,7 @@ func TestWithHTTPClient_SideEffects(t *testing.T) {
 		req, _ := http.NewRequest(http.MethodGet, "http://openrelik.local/api/v1/test", nil)
 		client.HTTPClient.Do(req)
 
-		if lastReq.Header.Get("x-openrelik-refresh-token") != "test-key" {
+		if lastReq.Header.Get(headerRefreshToken) != "test-key" {
 			t.Error("Missing auth header for OpenRelik host")
 		}
 	})
@@ -222,7 +222,7 @@ func TestWithHTTPClient_SideEffects(t *testing.T) {
 		req, _ := http.NewRequest(http.MethodGet, "http://google.com/search", nil)
 		client.HTTPClient.Do(req)
 
-		if lastReq.Header.Get("x-openrelik-refresh-token") != "" {
+		if lastReq.Header.Get(headerRefreshToken) != "" {
 			t.Error("Auth header leaked to unrelated host!")
 		}
 	})
@@ -242,7 +242,7 @@ func TestWithHTTPClient_SideEffects(t *testing.T) {
 		req, _ := http.NewRequest(http.MethodGet, "http://openrelik.local/api/v1/test", nil)
 		client.HTTPClient.Do(req)
 
-		if lastReq.Header.Get("x-openrelik-refresh-token") != "" {
+		if lastReq.Header.Get(headerRefreshToken) != "" {
 			t.Error("Auth header leaked to insecure HTTP connection on same host!")
 		}
 	})
@@ -251,7 +251,7 @@ func TestWithHTTPClient_SideEffects(t *testing.T) {
 func TestRoundTrip_RedirectLeakage(t *testing.T) {
 	// Start two servers: one representing OpenRelik, one representing an external host.
 	externalServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("x-openrelik-refresh-token") != "" {
+		if r.Header.Get(headerRefreshToken) != "" {
 			t.Error("Auth header leaked to external host!")
 		}
 		w.WriteHeader(http.StatusOK)
@@ -260,7 +260,7 @@ func TestRoundTrip_RedirectLeakage(t *testing.T) {
 
 	relikServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Verify auth header is present on the initial request.
-		if r.Header.Get("x-openrelik-refresh-token") != "test-key" {
+		if r.Header.Get(headerRefreshToken) != "test-key" {
 			t.Error("Missing auth header on initial request")
 		}
 		// Redirect to external host.
@@ -293,7 +293,7 @@ func TestRoundTrip_TokenLeakage(t *testing.T) {
 	// Malicious external server that returns 401 to trigger refresh/retry
 	maliciousServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		retryCount++
-		leakedToken = r.Header.Get("x-openrelik-access-token")
+		leakedToken = r.Header.Get(headerAccessToken)
 		w.WriteHeader(http.StatusUnauthorized)
 	}))
 	defer maliciousServer.Close()
@@ -506,7 +506,7 @@ func TestTokenRefresh(t *testing.T) {
 	refreshCount := 0
 	mux.HandleFunc("/auth/refresh", func(w http.ResponseWriter, r *http.Request) {
 		refreshCount++
-		if r.Header.Get("x-openrelik-refresh-token") != "valid-key" {
+		if r.Header.Get(headerRefreshToken) != "valid-key" {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
@@ -517,7 +517,7 @@ func TestTokenRefresh(t *testing.T) {
 	callCount := 0
 	mux.HandleFunc("/api/v1/resource", func(w http.ResponseWriter, r *http.Request) {
 		callCount++
-		if r.Header.Get("x-openrelik-access-token") != "new-token" {
+		if r.Header.Get(headerAccessToken) != "new-token" {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}

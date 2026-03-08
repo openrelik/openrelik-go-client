@@ -27,10 +27,15 @@ import (
 	"time"
 )
 
-const defaultAPIVersion = "v1"
-const userAgent = "openrelik-go-client/1.0"
-const tokenRefreshTimeout = 10 * time.Second
-const defaultMaxResponseSize = 10 * 1024 * 1024 // 10MB
+const (
+	defaultAPIVersion      = "v1"
+	userAgent              = "openrelik-go-client/1.0"
+	tokenRefreshTimeout    = 10 * time.Second
+	defaultMaxResponseSize = 10 * 1024 * 1024 // 10MB
+
+	headerRefreshToken = "x-openrelik-refresh-token"
+	headerAccessToken  = "x-openrelik-access-token"
+)
 
 // A Client is a reusable API client for OpenRelik.
 type Client struct {
@@ -62,32 +67,8 @@ func WithHTTPClient(httpClient *http.Client) Option {
 		if httpClient == nil {
 			return
 		}
-
 		// Create a shallow copy of the client to avoid side effects on the original.
 		cl := *httpClient
-
-		base := cl.Transport
-		if base == nil {
-			base = http.DefaultTransport
-		}
-
-		// Preserve existing TokenRefreshTransport configuration if present
-		var apiServerURL, apiHost, apiScheme, apiKey string
-		if t, ok := c.HTTPClient.Transport.(*TokenRefreshTransport); ok {
-			apiServerURL = t.apiServerURL
-			apiHost = t.apiHost
-			apiScheme = t.apiScheme
-			apiKey = t.apiKey
-		}
-
-		cl.Transport = &TokenRefreshTransport{
-			apiServerURL: apiServerURL,
-			apiHost:      apiHost,
-			apiScheme:    apiScheme,
-			apiKey:       apiKey,
-			base:         base,
-		}
-
 		c.HTTPClient = &cl
 	}
 }
@@ -99,15 +80,10 @@ func WithBaseTransport(base http.RoundTripper) Option {
 		if base == nil {
 			return
 		}
-		if t, ok := c.HTTPClient.Transport.(*TokenRefreshTransport); ok {
-			t.base = base
-		} else {
-			// If not already a TokenRefreshTransport, we wrap it.
-			// This handles cases where WithBaseTransport is called before/without NewClient defaults.
-			c.HTTPClient.Transport = &TokenRefreshTransport{
-				base: base,
-			}
+		if c.HTTPClient == nil {
+			c.HTTPClient = &http.Client{}
 		}
+		c.HTTPClient.Transport = base
 	}
 }
 
@@ -153,21 +129,11 @@ func NewClient(apiServerURL, apiKey string, opts ...Option) (*Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("openrelik: failed to parse API server URL: %w", err)
 	}
-	apiHost := u.Host
-	apiScheme := u.Scheme
-
-	transport := &TokenRefreshTransport{
-		apiServerURL: apiServerURL,
-		apiHost:      apiHost,
-		apiScheme:    apiScheme,
-		apiKey:       apiKey,
-		base:         http.DefaultTransport,
-	}
 
 	c := &Client{
 		BaseURL: baseURL,
 		HTTPClient: &http.Client{
-			Transport: transport,
+			Transport: http.DefaultTransport,
 		},
 		UserAgent:       userAgent,
 		MaxResponseSize: defaultMaxResponseSize,
@@ -177,11 +143,26 @@ func NewClient(apiServerURL, apiKey string, opts ...Option) (*Client, error) {
 		opt(c)
 	}
 
+	// Wrap the transport with token refresh logic
+	base := c.HTTPClient.Transport
+	if base == nil {
+		base = http.DefaultTransport
+	}
+
+	c.HTTPClient.Transport = &TokenRefreshTransport{
+		serverURL: apiServerURL,
+		host:      u.Host,
+		scheme:    u.Scheme,
+		apiKey:    apiKey,
+		base:      base,
+	}
+
 	// Initialize services
 	c.Users = &UsersService{client: c}
 
 	return c, nil
 }
+
 
 // --- Low-Level HTTP Methods ---
 
@@ -321,9 +302,9 @@ func (c *Client) Do(req *http.Request, v any) (*http.Response, error) {
 
 // TokenRefreshTransport handles automatic auth and concurrent token refresh.
 type TokenRefreshTransport struct {
-	apiServerURL string
-	apiHost      string
-	apiScheme    string
+	serverURL    string
+	host         string
+	scheme       string
 	apiKey       string
 	accessToken  string
 	mu           sync.RWMutex
@@ -340,13 +321,13 @@ func (t *TokenRefreshTransport) RoundTrip(req *http.Request) (*http.Response, er
 	// We clone the request before adding headers to avoid modifying the original
 	// request and to prevent credentials from being leaked during redirects
 	// (Go's http.Client copies headers from the original request, not the clone).
-	if t.apiHost != "" && req.URL.Host == t.apiHost && req.URL.Scheme == t.apiScheme {
+	if t.host != "" && req.URL.Host == t.host && req.URL.Scheme == t.scheme {
 		req = req.Clone(req.Context())
 		if t.apiKey != "" {
-			req.Header.Set("x-openrelik-refresh-token", t.apiKey)
+			req.Header.Set(headerRefreshToken, t.apiKey)
 		}
 		if accessToken != "" {
-			req.Header.Set("x-openrelik-access-token", accessToken)
+			req.Header.Set(headerAccessToken, accessToken)
 		}
 	}
 
@@ -355,8 +336,8 @@ func (t *TokenRefreshTransport) RoundTrip(req *http.Request) (*http.Response, er
 		return nil, err
 	}
 
-	if resp.StatusCode == http.StatusUnauthorized && t.apiHost != "" && req.URL.Host == t.apiHost && req.URL.Scheme == t.apiScheme {
-		refreshURL, err := url.JoinPath(t.apiServerURL, "auth/refresh")
+	if resp.StatusCode == http.StatusUnauthorized && t.host != "" && req.URL.Host == t.host && req.URL.Scheme == t.scheme {
+		refreshURL, err := url.JoinPath(t.serverURL, "auth/refresh")
 		if err != nil {
 			return nil, fmt.Errorf("openrelik: could not construct refresh URL: %w", err)
 		}
@@ -373,7 +354,7 @@ func (t *TokenRefreshTransport) RoundTrip(req *http.Request) (*http.Response, er
 		}
 
 		newReq := req.Clone(req.Context())
-		newReq.Header.Set("x-openrelik-access-token", newAccessToken)
+		newReq.Header.Set(headerAccessToken, newAccessToken)
 
 		if req.GetBody != nil {
 			body, err := req.GetBody()
@@ -399,7 +380,7 @@ func (t *TokenRefreshTransport) refreshIfStale(failedToken string) (string, erro
 		return t.accessToken, nil
 	}
 
-	refreshURL, err := url.JoinPath(t.apiServerURL, "auth/refresh")
+	refreshURL, err := url.JoinPath(t.serverURL, "auth/refresh")
 	if err != nil {
 		return "", fmt.Errorf("openrelik: invalid refresh URL: %w", err)
 	}
@@ -412,7 +393,7 @@ func (t *TokenRefreshTransport) refreshIfStale(failedToken string) (string, erro
 		return "", err
 	}
 	if t.apiKey != "" {
-		req.Header.Set("x-openrelik-refresh-token", t.apiKey)
+		req.Header.Set(headerRefreshToken, t.apiKey)
 	}
 
 	resp, err := t.base.RoundTrip(req)
