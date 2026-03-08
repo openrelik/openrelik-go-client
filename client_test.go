@@ -68,6 +68,51 @@ func TestNewClient(t *testing.T) {
 	})
 }
 
+func TestWithHTTPClient_SideEffects(t *testing.T) {
+	// 1. Original client should not be modified
+	originalTransport := &http.Transport{}
+	custom := &http.Client{
+		Timeout:   42 * time.Second,
+		Transport: originalTransport,
+	}
+
+	client := NewClient("http://openrelik.local", "test-key", WithHTTPClient(custom))
+
+	if custom.Transport != originalTransport {
+		t.Error("Original client's Transport was modified!")
+	}
+	if client.HTTPClient.Timeout != 42*time.Second {
+		t.Errorf("Expected timeout 42s, got %v", client.HTTPClient.Timeout)
+	}
+
+	// 2. Auth headers should only be added to OpenRelik host
+	var lastReq *http.Request
+	recorder := RoundTripFunc(func(req *http.Request) (*http.Response, error) {
+		lastReq = req
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(nil)}, nil
+	})
+
+	client.HTTPClient.Transport.(*TokenRefreshTransport).base = recorder
+
+	t.Run("OpenRelik Host", func(t *testing.T) {
+		req, _ := http.NewRequest(http.MethodGet, "http://openrelik.local/api/v1/test", nil)
+		client.HTTPClient.Do(req)
+
+		if lastReq.Header.Get("x-openrelik-refresh-token") != "test-key" {
+			t.Error("Missing auth header for OpenRelik host")
+		}
+	})
+
+	t.Run("Other Host", func(t *testing.T) {
+		req, _ := http.NewRequest(http.MethodGet, "http://google.com/search", nil)
+		client.HTTPClient.Do(req)
+
+		if lastReq.Header.Get("x-openrelik-refresh-token") != "" {
+			t.Error("Auth header leaked to unrelated host!")
+		}
+	})
+}
+
 type requestRecorder struct {
 	base    http.RoundTripper
 	sampled bool

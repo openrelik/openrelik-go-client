@@ -49,27 +49,31 @@ type Option func(*Client)
 
 // WithHTTPClient allows the user to provide their own pre-configured http.Client.
 // The client's Transport will be wrapped by the OpenRelik TokenRefreshTransport.
+// A shallow copy of the provided client is made to avoid side effects on the original.
 func WithHTTPClient(httpClient *http.Client) Option {
 	return func(c *Client) {
 		if httpClient == nil {
 			return
 		}
 
-		base := httpClient.Transport
+		// Create a shallow copy of the client to avoid side effects on the original.
+		cl := *httpClient
+
+		base := cl.Transport
 		if base == nil {
 			base = http.DefaultTransport
 		}
 
 		// Preserve auth configuration from the default transport
 		if t, ok := c.HTTPClient.Transport.(*TokenRefreshTransport); ok {
-			httpClient.Transport = &TokenRefreshTransport{
+			cl.Transport = &TokenRefreshTransport{
 				apiServerURL: t.apiServerURL,
 				apiKey:       t.apiKey,
 				base:         base,
 			}
 		}
 
-		c.HTTPClient = httpClient
+		c.HTTPClient = &cl
 	}
 }
 
@@ -248,11 +252,15 @@ func (t *TokenRefreshTransport) RoundTrip(req *http.Request) (*http.Response, er
 	accessToken := t.accessToken
 	t.mu.RUnlock()
 
-	if t.apiKey != "" {
-		req.Header.Set("x-openrelik-refresh-token", t.apiKey)
-	}
-	if accessToken != "" {
-		req.Header.Set("x-openrelik-access-token", accessToken)
+	// Only add auth headers if the request host matches the API server host.
+	u, err := url.Parse(t.apiServerURL)
+	if err == nil && req.URL.Host == u.Host {
+		if t.apiKey != "" {
+			req.Header.Set("x-openrelik-refresh-token", t.apiKey)
+		}
+		if accessToken != "" {
+			req.Header.Set("x-openrelik-access-token", accessToken)
+		}
 	}
 
 	resp, err := t.base.RoundTrip(req)
