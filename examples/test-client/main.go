@@ -39,7 +39,7 @@ func main() {
 func exampleHighLevel(ctx context.Context, client *openrelik.Client) {
 	fmt.Println("--- High-Level Service Pattern ---")
 
-	user, resp, err := client.Users.GetMe(ctx)
+	user, resp, err := client.Users().GetMe(ctx)
 	if err != nil {
 		log.Printf("Service Error: %v\n", err)
 		return

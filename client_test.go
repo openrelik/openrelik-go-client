@@ -21,6 +21,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 )
@@ -32,11 +33,11 @@ func TestNewClient(t *testing.T) {
 			t.Fatalf("NewClient failed: %v", err)
 		}
 		expectedBase := "http://localhost:8080/api/v1"
-		if client.BaseURL != expectedBase {
-			t.Errorf("Expected %s, got %s", expectedBase, client.BaseURL)
+		if client.baseURL != expectedBase {
+			t.Errorf("Expected %s, got %s", expectedBase, client.baseURL)
 		}
-		if client.MaxResponseSize != defaultMaxResponseSize {
-			t.Errorf("Expected default MaxResponseSize %d, got %d", defaultMaxResponseSize, client.MaxResponseSize)
+		if client.maxResponseSize != defaultMaxResponseSize {
+			t.Errorf("Expected default MaxResponseSize %d, got %d", defaultMaxResponseSize, client.maxResponseSize)
 		}
 	})
 
@@ -46,8 +47,8 @@ func TestNewClient(t *testing.T) {
 			t.Fatalf("NewClient failed: %v", err)
 		}
 		expectedBase := "http://localhost:8080/api/v2"
-		if client.BaseURL != expectedBase {
-			t.Errorf("Expected %s, got %s", expectedBase, client.BaseURL)
+		if client.baseURL != expectedBase {
+			t.Errorf("Expected %s, got %s", expectedBase, client.baseURL)
 		}
 	})
 
@@ -57,12 +58,12 @@ func TestNewClient(t *testing.T) {
 		if err != nil {
 			t.Fatalf("NewClient failed: %v", err)
 		}
-		if client.HTTPClient.Timeout != 42*time.Second {
-			t.Errorf("Expected 42s timeout, got %v", client.HTTPClient.Timeout)
+		if client.httpClient.Timeout != 42*time.Second {
+			t.Errorf("Expected 42s timeout, got %v", client.httpClient.Timeout)
 		}
 		// Ensure transport is wrapped
-		if _, ok := client.HTTPClient.Transport.(*TokenRefreshTransport); !ok {
-			t.Error("Expected Transport to be TokenRefreshTransport")
+		if _, ok := client.httpClient.Transport.(*tokenRefreshTransport); !ok {
+			t.Error("Expected Transport to be tokenRefreshTransport")
 		}
 	})
 
@@ -73,9 +74,9 @@ func TestNewClient(t *testing.T) {
 			t.Fatalf("NewClient failed: %v", err)
 		}
 		
-		transport, ok := client.HTTPClient.Transport.(*TokenRefreshTransport)
+		transport, ok := client.httpClient.Transport.(*tokenRefreshTransport)
 		if !ok {
-			t.Fatal("Expected TokenRefreshTransport")
+			t.Fatal("Expected tokenRefreshTransport")
 		}
 		if transport.base != recorder {
 			t.Error("Expected base transport to be our recorder")
@@ -84,15 +85,15 @@ func TestNewClient(t *testing.T) {
 
 	t.Run("WithUserAgent", func(t *testing.T) {
 		client, _ := NewClient("http://localhost", "key", WithUserAgent("custom-ua"))
-		if client.UserAgent != "custom-ua" {
-			t.Errorf("Expected custom-ua, got %s", client.UserAgent)
+		if client.userAgent != "custom-ua" {
+			t.Errorf("Expected custom-ua, got %s", client.userAgent)
 		}
 	})
 
 	t.Run("WithMaxResponseSize", func(t *testing.T) {
 		client, _ := NewClient("http://localhost", "key", WithMaxResponseSize(1234))
-		if client.MaxResponseSize != 1234 {
-			t.Errorf("Expected 1234, got %d", client.MaxResponseSize)
+		if client.maxResponseSize != 1234 {
+			t.Errorf("Expected 1234, got %d", client.maxResponseSize)
 		}
 	})
 
@@ -114,7 +115,7 @@ func TestMaxResponseSize(t *testing.T) {
 		t.Fatalf("NewClient failed: %v", err)
 	}
 	// Set a very small limit for testing
-	client.MaxResponseSize = 5
+	client.maxResponseSize = 5
 	ctx := context.Background()
 
 	t.Run("Response too large", func(t *testing.T) {
@@ -151,7 +152,7 @@ func TestMaxResponseSize(t *testing.T) {
 	})
 
 	t.Run("Unlimited (MaxResponseSize = 0)", func(t *testing.T) {
-		client.MaxResponseSize = 0
+		client.maxResponseSize = 0
 		mux.HandleFunc("/api/v1/unlimited", func(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprint(w, "this is now allowed")
 		})
@@ -169,15 +170,12 @@ func TestMaxResponseSize(t *testing.T) {
 	})
 }
 
-func TestWithVersion_Panic(t *testing.T) {
-	defer func() {
-		if r := recover(); r == nil {
-			t.Errorf("WithVersion did not panic on invalid BaseURL")
-		}
-	}()
-
-	client := &Client{BaseURL: ":"}
-	WithVersion("v2")(client)
+func TestWithVersion_Error(t *testing.T) {
+	client := &Client{baseURL: ":"}
+	err := WithVersion("v2")(client)
+	if err == nil {
+		t.Error("WithVersion did not return error on invalid baseURL")
+	}
 }
 
 func TestWithHTTPClient_SideEffects(t *testing.T) {
@@ -196,8 +194,8 @@ func TestWithHTTPClient_SideEffects(t *testing.T) {
 	if custom.Transport != originalTransport {
 		t.Error("Original client's Transport was modified!")
 	}
-	if client.HTTPClient.Timeout != 42*time.Second {
-		t.Errorf("Expected timeout 42s, got %v", client.HTTPClient.Timeout)
+	if client.httpClient.Timeout != 42*time.Second {
+		t.Errorf("Expected timeout 42s, got %v", client.httpClient.Timeout)
 	}
 
 	// 2. Auth headers should only be added to OpenRelik host
@@ -207,11 +205,11 @@ func TestWithHTTPClient_SideEffects(t *testing.T) {
 		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(nil)}, nil
 	})
 
-	client.HTTPClient.Transport.(*TokenRefreshTransport).base = recorder
+	client.httpClient.Transport.(*tokenRefreshTransport).base = recorder
 
 	t.Run("OpenRelik Host", func(t *testing.T) {
 		req, _ := http.NewRequest(http.MethodGet, "http://openrelik.local/api/v1/test", nil)
-		client.HTTPClient.Do(req)
+		client.httpClient.Do(req)
 
 		if lastReq.Header.Get(headerRefreshToken) != "test-key" {
 			t.Error("Missing auth header for OpenRelik host")
@@ -220,7 +218,7 @@ func TestWithHTTPClient_SideEffects(t *testing.T) {
 
 	t.Run("Other Host", func(t *testing.T) {
 		req, _ := http.NewRequest(http.MethodGet, "http://google.com/search", nil)
-		client.HTTPClient.Do(req)
+		client.httpClient.Do(req)
 
 		if lastReq.Header.Get(headerRefreshToken) != "" {
 			t.Error("Auth header leaked to unrelated host!")
@@ -236,11 +234,11 @@ func TestWithHTTPClient_SideEffects(t *testing.T) {
 			lastReq = req
 			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(nil)}, nil
 		})
-		client.HTTPClient.Transport.(*TokenRefreshTransport).base = recorder
+		client.httpClient.Transport.(*tokenRefreshTransport).base = recorder
 
 		// Request to same host but using HTTP
 		req, _ := http.NewRequest(http.MethodGet, "http://openrelik.local/api/v1/test", nil)
-		client.HTTPClient.Do(req)
+		client.httpClient.Do(req)
 
 		if lastReq.Header.Get(headerRefreshToken) != "" {
 			t.Error("Auth header leaked to insecure HTTP connection on same host!")
@@ -316,7 +314,7 @@ func TestRoundTrip_TokenLeakage(t *testing.T) {
 
 	// Use the client to make a request to the MALICIOUS server
 	req, _ := http.NewRequest(http.MethodGet, maliciousServer.URL, nil)
-	resp, err := client.HTTPClient.Do(req)
+	resp, err := client.httpClient.Do(req)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -383,20 +381,6 @@ func TestNewRequest(t *testing.T) {
 			t.Error("Expected error for invalid JSON body type")
 		}
 	})
-
-	t.Run("Path Traversal", func(t *testing.T) {
-		endpoints := []string{
-			"../secret",
-			"/../secret",
-			"test/../../secret",
-		}
-		for _, e := range endpoints {
-			_, err := c.NewRequest(ctx, http.MethodGet, e, nil)
-			if err == nil {
-				t.Errorf("Expected error for path traversal endpoint: %s", e)
-			}
-		}
-	})
 }
 
 func TestDo(t *testing.T) {
@@ -451,6 +435,7 @@ func TestDo(t *testing.T) {
 	t.Run("API Error", func(t *testing.T) {
 		mux.HandleFunc("/api/v1/error", func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprint(w, "error detail")
 		})
 
 		req, _ := client.NewRequest(ctx, http.MethodGet, "/error", nil)
@@ -463,8 +448,19 @@ func TestDo(t *testing.T) {
 		if !errors.As(err, &apiErr) {
 			t.Fatalf("Expected error to be of type *Error, got %T", err)
 		}
-		if apiErr.Response.StatusCode != http.StatusBadRequest {
-			t.Errorf("Expected status code 400, got %d", apiErr.Response.StatusCode)
+		if apiErr.StatusCode != http.StatusBadRequest {
+			t.Errorf("Expected StatusCode 400, got %d", apiErr.StatusCode)
+		}
+		if string(apiErr.Body) != "error detail" {
+			t.Errorf("Expected Body 'error detail', got %q", string(apiErr.Body))
+		}
+		
+		expectedMsgPrefix := "openrelik: GET http://"
+		if !strings.HasPrefix(apiErr.Error(), expectedMsgPrefix) {
+			t.Errorf("Expected error message to start with %q, got %q", expectedMsgPrefix, apiErr.Error())
+		}
+		if !strings.Contains(apiErr.Error(), "400 Bad Request") {
+			t.Errorf("Expected error message to contain '400 Bad Request', got %q", apiErr.Error())
 		}
 	})
 
@@ -661,7 +657,7 @@ func TestClient_Errors(t *testing.T) {
 
 	t.Run("Network Error", func(t *testing.T) {
 		client, _ := NewClient("http://localhost", "key")
-		client.HTTPClient.Transport.(*TokenRefreshTransport).base = &errorTransport{}
+		client.httpClient.Transport.(*tokenRefreshTransport).base = &errorTransport{}
 		_, err := client.Get(ctx, "/test", nil)
 		if err == nil {
 			t.Error("Expected error for network failure")

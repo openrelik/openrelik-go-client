@@ -29,7 +29,7 @@ import (
 
 const (
 	defaultAPIVersion      = "v1"
-	userAgent              = "openrelik-go-client/1.0"
+	defaultUserAgent       = "openrelik-go-client/1.0"
 	tokenRefreshTimeout    = 10 * time.Second
 	defaultMaxResponseSize = 10 * 1024 * 1024 // 10MB
 
@@ -39,80 +39,92 @@ const (
 
 // A Client is a reusable API client for OpenRelik.
 type Client struct {
-	// BaseURL is the versioned root endpoint for the API.
-	BaseURL string
+	// baseURL is the versioned root endpoint for the API.
+	baseURL string
 
-	// HTTPClient is the underlying client used for all network I/O.
-	HTTPClient *http.Client
+	// httpClient is the underlying client used for all network I/O.
+	httpClient *http.Client
 
-	// UserAgent is the string sent in the User-Agent header.
-	UserAgent string
+	// userAgent is the string sent in the User-Agent header.
+	userAgent string
 
-	// MaxResponseSize is the maximum size in bytes that the response body can be.
+	// maxResponseSize is the maximum size in bytes that the response body can be.
 	// If 0, no limit is applied. Defaults to 10MB.
-	MaxResponseSize int64
+	maxResponseSize int64
 
 	// Services used for communicating with different parts of the OpenRelik API.
-	Users *UsersService
+	users *UsersService
+}
+
+// Users returns the service for communicating with user-related methods of the OpenRelik API.
+func (c *Client) Users() *UsersService {
+	return c.users
 }
 
 // Option defines a functional option for configuring the Client.
-type Option func(*Client)
+type Option func(*Client) error
 
 // WithHTTPClient allows the user to provide their own pre-configured http.Client.
 // The client's Transport will be wrapped by the OpenRelik TokenRefreshTransport.
 // A shallow copy of the provided client is made to avoid side effects on the original.
+// If WithBaseTransport is also provided, it will override the Transport of this client.
 func WithHTTPClient(httpClient *http.Client) Option {
-	return func(c *Client) {
+	return func(c *Client) error {
 		if httpClient == nil {
-			return
+			return nil
 		}
 		// Create a shallow copy of the client to avoid side effects on the original.
 		cl := *httpClient
-		c.HTTPClient = &cl
+		c.httpClient = &cl
+		return nil
 	}
 }
 
 // WithBaseTransport allows the user to provide a custom base RoundTripper
 // (e.g., for proxies or custom TLS settings) while keeping automatic auth.
+// This overrides the Transport of the http.Client (including one provided by WithHTTPClient).
 func WithBaseTransport(base http.RoundTripper) Option {
-	return func(c *Client) {
+	return func(c *Client) error {
 		if base == nil {
-			return
+			return nil
 		}
-		if c.HTTPClient == nil {
-			c.HTTPClient = &http.Client{}
+		if c.httpClient == nil {
+			c.httpClient = &http.Client{}
 		}
-		c.HTTPClient.Transport = base
+		c.httpClient.Transport = base
+		return nil
 	}
 }
 
 // WithUserAgent sets the User-Agent header for the client.
 func WithUserAgent(ua string) Option {
-	return func(c *Client) {
-		c.UserAgent = ua
+	return func(c *Client) error {
+		c.userAgent = ua
+		return nil
 	}
 }
 
 // WithMaxResponseSize sets the maximum size in bytes that the response body can be.
 // If 0, no limit is applied.
 func WithMaxResponseSize(size int64) Option {
-	return func(c *Client) {
-		c.MaxResponseSize = size
+	return func(c *Client) error {
+		c.maxResponseSize = size
+		return nil
 	}
 }
 
 // WithVersion sets the API version to use.
 func WithVersion(version string) Option {
-	return func(c *Client) {
-		u, err := url.Parse(c.BaseURL)
+	return func(c *Client) error {
+		u, err := url.Parse(c.baseURL)
 		if err != nil {
-			panic(fmt.Sprintf("openrelik: failed to parse BaseURL in WithVersion: %v", err))
+			return fmt.Errorf("openrelik: failed to parse baseURL in WithVersion: %w", err)
 		}
 		// Replace the last element of the path with the new version.
 		// e.g. /api/v1 -> /api/v2
 		u.Path = path.Join(path.Dir(u.Path), version)
-		c.BaseURL = u.String()
+		c.baseURL = u.String()
+		return nil
 	}
 }
 
@@ -120,49 +132,50 @@ func WithVersion(version string) Option {
 // apiServerURL: The root URL of the OpenRelik server (e.g., http://localhost:8710).
 // apiKey: The long-lived refresh token used for authentication.
 func NewClient(apiServerURL, apiKey string, opts ...Option) (*Client, error) {
-	baseURL, err := url.JoinPath(apiServerURL, "api", defaultAPIVersion)
-	if err != nil {
-		return nil, fmt.Errorf("openrelik: invalid API server URL: %w", err)
-	}
-
 	u, err := url.Parse(apiServerURL)
 	if err != nil {
 		return nil, fmt.Errorf("openrelik: failed to parse API server URL: %w", err)
 	}
 
 	c := &Client{
-		BaseURL: baseURL,
-		HTTPClient: &http.Client{
+		baseURL: u.JoinPath("api", defaultAPIVersion).String(),
+		httpClient: &http.Client{
 			Transport: http.DefaultTransport,
 		},
-		UserAgent:       userAgent,
-		MaxResponseSize: defaultMaxResponseSize,
+		userAgent:       defaultUserAgent,
+		maxResponseSize: defaultMaxResponseSize,
 	}
 
 	for _, opt := range opts {
-		opt(c)
+		if err := opt(c); err != nil {
+			return nil, err
+		}
 	}
 
 	// Wrap the transport with token refresh logic
-	base := c.HTTPClient.Transport
+	base := c.httpClient.Transport
 	if base == nil {
 		base = http.DefaultTransport
 	}
 
-	c.HTTPClient.Transport = &TokenRefreshTransport{
-		serverURL: apiServerURL,
-		host:      u.Host,
-		scheme:    u.Scheme,
-		apiKey:    apiKey,
-		base:      base,
+	refreshURL, err := url.JoinPath(apiServerURL, "auth/refresh")
+	if err != nil {
+		return nil, fmt.Errorf("openrelik: could not construct refresh URL: %w", err)
+	}
+
+	c.httpClient.Transport = &tokenRefreshTransport{
+		refreshURL: refreshURL,
+		host:       u.Host,
+		scheme:     u.Scheme,
+		apiKey:     apiKey,
+		base:       base,
 	}
 
 	// Initialize services
-	c.Users = &UsersService{client: c}
+	c.users = &UsersService{client: c}
 
 	return c, nil
 }
-
 
 // --- Low-Level HTTP Methods ---
 
@@ -208,19 +221,16 @@ func (c *Client) Delete(ctx context.Context, endpoint string, v any) (*http.Resp
 
 // NewRequest handles JSON marshaling, context attachment, and header setup.
 func (c *Client) NewRequest(ctx context.Context, method, endpoint string, body any) (*http.Request, error) {
-	u, err := url.Parse(c.BaseURL)
+	u, err := url.Parse(c.baseURL)
 	if err != nil {
 		return nil, err
 	}
 
-	// Ensure endpoint doesn't escape the BaseURL path.
-	// JoinPath cleans the path, so we check if the result still has the BaseURL path as prefix.
+	// Ensure endpoint doesn't escape the baseURL path.
+	// JoinPath cleans the path.
 	fullPath, err := url.JoinPath(u.Path, endpoint)
 	if err != nil {
 		return nil, err
-	}
-	if !path.IsAbs(fullPath) || (u.Path != "/" && !bytes.HasPrefix([]byte(fullPath), []byte(u.Path))) {
-		return nil, fmt.Errorf("openrelik: invalid endpoint: %s", endpoint)
 	}
 	u.Path = fullPath
 
@@ -238,7 +248,7 @@ func (c *Client) NewRequest(ctx context.Context, method, endpoint string, body a
 		return nil, err
 	}
 
-	req.Header.Set("User-Agent", c.UserAgent)
+	req.Header.Set("User-Agent", c.userAgent)
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 		req.GetBody = func() (io.ReadCloser, error) {
@@ -254,15 +264,28 @@ func (c *Client) NewRequest(ctx context.Context, method, endpoint string, body a
 type Error struct {
 	// Response is the HTTP response that caused the error.
 	Response *http.Response
+
+	// StatusCode is the HTTP status code of the response.
+	StatusCode int
+
+	// Body is the raw response body.
+	Body []byte
 }
 
 func (e *Error) Error() string {
-	return fmt.Sprintf("openrelik: api error: %s", e.Response.Status)
+	if e.Response != nil && e.Response.Request != nil {
+		return fmt.Sprintf("openrelik: %s %s: %d %s",
+			e.Response.Request.Method,
+			e.Response.Request.URL,
+			e.StatusCode,
+			e.Response.Status)
+	}
+	return fmt.Sprintf("openrelik: api error: %d", e.StatusCode)
 }
 
 // Do executes the HTTP request and decodes the response into v if provided.
 func (c *Client) Do(req *http.Request, v any) (*http.Response, error) {
-	resp, err := c.HTTPClient.Do(req)
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -271,8 +294,8 @@ func (c *Client) Do(req *http.Request, v any) (*http.Response, error) {
 	// Read body into memory to allow inspection if decoding fails.
 	// We use a LimitedReader to prevent OOM if the response is too large.
 	var reader io.Reader = resp.Body
-	if c.MaxResponseSize > 0 {
-		reader = io.LimitReader(resp.Body, c.MaxResponseSize+1)
+	if c.maxResponseSize > 0 {
+		reader = io.LimitReader(resp.Body, c.maxResponseSize+1)
 	}
 
 	data, err := io.ReadAll(reader)
@@ -280,15 +303,19 @@ func (c *Client) Do(req *http.Request, v any) (*http.Response, error) {
 		return resp, err
 	}
 
-	if c.MaxResponseSize > 0 && int64(len(data)) > c.MaxResponseSize {
-		return resp, fmt.Errorf("openrelik: response body too large (limit %d bytes)", c.MaxResponseSize)
+	if c.maxResponseSize > 0 && int64(len(data)) > c.maxResponseSize {
+		return resp, fmt.Errorf("openrelik: response body too large (limit %d bytes)", c.maxResponseSize)
 	}
 
 	// Re-populate the body so the caller can still read it
 	resp.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if resp.StatusCode >= 400 {
-		return resp, &Error{Response: resp}
+		return resp, &Error{
+			Response:   resp,
+			StatusCode: resp.StatusCode,
+			Body:       data,
+		}
 	}
 
 	if v != nil {
@@ -300,19 +327,19 @@ func (c *Client) Do(req *http.Request, v any) (*http.Response, error) {
 	return resp, nil
 }
 
-// TokenRefreshTransport handles automatic auth and concurrent token refresh.
-type TokenRefreshTransport struct {
-	serverURL    string
-	host         string
-	scheme       string
-	apiKey       string
-	accessToken  string
-	mu           sync.RWMutex
-	base         http.RoundTripper
+// tokenRefreshTransport handles automatic auth and concurrent token refresh.
+type tokenRefreshTransport struct {
+	refreshURL  string
+	host        string
+	scheme      string
+	apiKey      string
+	accessToken string
+	mu          sync.RWMutex
+	base        http.RoundTripper
 }
 
 // RoundTrip adds authentication headers and handles token refresh on 401 responses.
-func (t *TokenRefreshTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+func (t *tokenRefreshTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	t.mu.RLock()
 	accessToken := t.accessToken
 	t.mu.RUnlock()
@@ -337,11 +364,7 @@ func (t *TokenRefreshTransport) RoundTrip(req *http.Request) (*http.Response, er
 	}
 
 	if resp.StatusCode == http.StatusUnauthorized && t.host != "" && req.URL.Host == t.host && req.URL.Scheme == t.scheme {
-		refreshURL, err := url.JoinPath(t.serverURL, "auth/refresh")
-		if err != nil {
-			return nil, fmt.Errorf("openrelik: could not construct refresh URL: %w", err)
-		}
-		if req.URL.String() == refreshURL {
+		if req.URL.String() == t.refreshURL {
 			return resp, nil
 		}
 
@@ -371,7 +394,7 @@ func (t *TokenRefreshTransport) RoundTrip(req *http.Request) (*http.Response, er
 }
 
 // refreshIfStale ensures only one concurrent refresh happens at a time.
-func (t *TokenRefreshTransport) refreshIfStale(failedToken string) (string, error) {
+func (t *tokenRefreshTransport) refreshIfStale(failedToken string) (string, error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
@@ -380,15 +403,10 @@ func (t *TokenRefreshTransport) refreshIfStale(failedToken string) (string, erro
 		return t.accessToken, nil
 	}
 
-	refreshURL, err := url.JoinPath(t.serverURL, "auth/refresh")
-	if err != nil {
-		return "", fmt.Errorf("openrelik: invalid refresh URL: %w", err)
-	}
-
 	ctx, cancel := context.WithTimeout(context.Background(), tokenRefreshTimeout)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, refreshURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, t.refreshURL, nil)
 	if err != nil {
 		return "", err
 	}

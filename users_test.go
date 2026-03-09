@@ -57,7 +57,7 @@ func TestUsersService_GetMe(t *testing.T) {
 			}`)
 		})
 
-		user, resp, err := client.Users.GetMe(ctx)
+		user, resp, err := client.users.GetMe(ctx)
 		if err != nil {
 			t.Fatalf("GetMe returned error: %v", err)
 		}
@@ -79,7 +79,7 @@ func TestUsersService_GetMe(t *testing.T) {
 			w.WriteHeader(http.StatusInternalServerError)
 		})
 
-		_, _, err := client.Users.GetMe(ctx)
+		_, _, err := client.users.GetMe(ctx)
 		if err == nil {
 			t.Error("Expected error for 500 status code")
 		}

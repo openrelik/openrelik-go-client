@@ -30,7 +30,7 @@ func main() {
 	}
 
 	// Retrieve the currently authenticated user profile
-	user, _, err := client.Users.GetMe(context.Background())
+	user, _, err := client.Users().GetMe(context.Background())
 	if err != nil {
 		log.Fatalf("Error: %v", err)
 	}
@@ -42,7 +42,7 @@ func main() {
 ## Key Features
 
 - **Zero External Dependencies:** The core library only uses the Go standard library.
-- **Service-Oriented Design:** API methods are grouped into logical services (`client.Users`) for better discoverability.
+- **Service-Oriented Design:** API methods are grouped into logical services (`client.Users()`) for better discoverability.
 - **Automated Authentication:** Handles access token injection and transparent token refresh (via `http.RoundTripper`) automatically.
 - **Context Support:** All methods support `context.Context` for timeout and cancellation handling.
 - **Concurrency Safe:** Transparently handles concurrent token refreshes.
