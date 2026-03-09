@@ -49,6 +49,24 @@ func main() {
 
 ## Advanced Usage
 
+### Error Handling
+
+The library returns a structured `openrelik.Error` for API-level failures (4xx/5xx status codes). You can use `errors.As` to inspect the status code or the raw response body. Network or timeout errors will be returned as-is.
+
+```go
+user, _, err := client.Users().GetMe(ctx)
+if err != nil {
+    var apiErr *openrelik.Error
+    if errors.As(err, &apiErr) {
+        // API error (e.g., 404 Not Found)
+        fmt.Printf("API error %d: %s\n", apiErr.StatusCode, apiErr.Message)
+    } else {
+        // Network or cancellation error
+        fmt.Printf("Network error: %v\n", err)
+    }
+}
+```
+
 ### Custom HTTP Configuration
 
 If you need to provide a custom `http.Client` or a custom `http.RoundTripper` (e.g., for proxies, custom TLS, or tracing), you can use functional options during initialization.
@@ -83,4 +101,33 @@ client, err := openrelik.NewClient(
 if err != nil {
     log.Fatalf("Failed to create client: %v", err)
 }
+```
+
+### Low-Level API (Escape Hatch)
+
+For endpoints not yet covered by a typed service, you can use the low-level HTTP methods (`Get`, `Post`, `Put`, `Patch`, `Delete`). These methods handle authentication and automatic token refresh transparently.
+
+#### Decoding into a Struct
+```go
+user := &openrelik.User{}
+_, err := client.Get(ctx, "/users/me/", user)
+if err != nil {
+    log.Fatal(err)
+}
+fmt.Printf("User: %+v\n", user)
+```
+
+#### Raw Response Handling
+```go
+resp, err := client.Get(ctx, "/users/me/", nil)
+if err != nil {
+    log.Fatal(err)
+}
+defer resp.Body.Close()
+
+body, err := io.ReadAll(resp.Body)
+if err != nil {
+    log.Fatal(err)
+}
+fmt.Printf("Raw JSON: %s\n", string(body))
 ```

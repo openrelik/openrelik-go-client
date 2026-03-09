@@ -32,9 +32,12 @@ func TestNewClient(t *testing.T) {
 		if err != nil {
 			t.Fatalf("NewClient failed: %v", err)
 		}
-		expectedBase := "http://localhost:8080/api/v1"
-		if client.baseURL != expectedBase {
-			t.Errorf("Expected %s, got %s", expectedBase, client.baseURL)
+		expectedServer := "http://localhost:8080"
+		if client.serverURL.String() != expectedServer {
+			t.Errorf("Expected %s, got %s", expectedServer, client.serverURL.String())
+		}
+		if client.apiVersion != defaultAPIVersion {
+			t.Errorf("Expected version %s, got %s", defaultAPIVersion, client.apiVersion)
 		}
 		if client.maxResponseSize != defaultMaxResponseSize {
 			t.Errorf("Expected default MaxResponseSize %d, got %d", defaultMaxResponseSize, client.maxResponseSize)
@@ -46,9 +49,8 @@ func TestNewClient(t *testing.T) {
 		if err != nil {
 			t.Fatalf("NewClient failed: %v", err)
 		}
-		expectedBase := "http://localhost:8080/api/v2"
-		if client.baseURL != expectedBase {
-			t.Errorf("Expected %s, got %s", expectedBase, client.baseURL)
+		if client.apiVersion != "v2" {
+			t.Errorf("Expected version v2, got %s", client.apiVersion)
 		}
 	})
 
@@ -168,14 +170,6 @@ func TestMaxResponseSize(t *testing.T) {
 			t.Errorf("Expected 'this is now allowed', got %q", string(body))
 		}
 	})
-}
-
-func TestWithVersion_Error(t *testing.T) {
-	client := &Client{baseURL: ":"}
-	err := WithVersion("v2")(client)
-	if err == nil {
-		t.Error("WithVersion did not return error on invalid baseURL")
-	}
 }
 
 func TestWithHTTPClient_SideEffects(t *testing.T) {
@@ -464,7 +458,28 @@ func TestDo(t *testing.T) {
 		}
 	})
 
-	t.Run("Preserve Body on Decode Error", func(t *testing.T) {
+	t.Run("Structured API Error (detail)", func(t *testing.T) {
+		mux.HandleFunc("/api/v1/structured-error", func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusNotFound)
+			fmt.Fprint(w, `{"detail": "object not found"}`)
+		})
+
+		req, _ := client.NewRequest(ctx, http.MethodGet, "/structured-error", nil)
+		_, err := client.Do(req, nil)
+		
+		var apiErr *Error
+		if !errors.As(err, &apiErr) {
+			t.Fatalf("Expected *Error, got %T", err)
+		}
+		if apiErr.Message != "object not found" {
+			t.Errorf("Expected message 'object not found', got %q", apiErr.Message)
+		}
+		if !strings.Contains(apiErr.Error(), "object not found") {
+			t.Errorf("Expected Error() to contain message, got %q", apiErr.Error())
+		}
+	})
+
+	t.Run("Decode Error with Unwrap", func(t *testing.T) {
 		mux.HandleFunc("/api/v1/bad-json", func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
 			fmt.Fprint(w, `{"id": "not-a-number"}`)
@@ -478,6 +493,19 @@ func TestDo(t *testing.T) {
 		resp, err := client.Do(req, &d)
 		if err == nil {
 			t.Fatal("Expected error for invalid JSON, got nil")
+		}
+
+		var apiErr *Error
+		if !errors.As(err, &apiErr) {
+			t.Fatalf("Expected *Error wrapping the decode error, got %T", err)
+		}
+		
+		if apiErr.Cause == nil {
+			t.Fatal("Expected Cause to be set on decode error")
+		}
+
+		if !errors.Is(err, apiErr.Cause) {
+			t.Error("errors.Is failed to identify the Cause")
 		}
 
 		if resp == nil {

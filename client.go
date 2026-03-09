@@ -22,7 +22,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"path"
 	"sync"
 	"time"
 )
@@ -39,11 +38,17 @@ const (
 
 // A Client is a reusable API client for OpenRelik.
 type Client struct {
-	// baseURL is the versioned root endpoint for the API.
-	baseURL string
+	// serverURL is the root endpoint for the OpenRelik server.
+	serverURL *url.URL
+
+	// apiVersion is the version of the API to use (e.g. "v1").
+	apiVersion string
 
 	// httpClient is the underlying client used for all network I/O.
 	httpClient *http.Client
+
+	// baseTransport is a custom RoundTripper provided via WithBaseTransport.
+	baseTransport http.RoundTripper
 
 	// userAgent is the string sent in the User-Agent header.
 	userAgent string
@@ -85,13 +90,7 @@ func WithHTTPClient(httpClient *http.Client) Option {
 // This overrides the Transport of the http.Client (including one provided by WithHTTPClient).
 func WithBaseTransport(base http.RoundTripper) Option {
 	return func(c *Client) error {
-		if base == nil {
-			return nil
-		}
-		if c.httpClient == nil {
-			c.httpClient = &http.Client{}
-		}
-		c.httpClient.Transport = base
+		c.baseTransport = base
 		return nil
 	}
 }
@@ -116,14 +115,7 @@ func WithMaxResponseSize(size int64) Option {
 // WithVersion sets the API version to use.
 func WithVersion(version string) Option {
 	return func(c *Client) error {
-		u, err := url.Parse(c.baseURL)
-		if err != nil {
-			return fmt.Errorf("openrelik: failed to parse baseURL in WithVersion: %w", err)
-		}
-		// Replace the last element of the path with the new version.
-		// e.g. /api/v1 -> /api/v2
-		u.Path = path.Join(path.Dir(u.Path), version)
-		c.baseURL = u.String()
+		c.apiVersion = version
 		return nil
 	}
 }
@@ -138,7 +130,8 @@ func NewClient(apiServerURL, apiKey string, opts ...Option) (*Client, error) {
 	}
 
 	c := &Client{
-		baseURL: u.JoinPath("api", defaultAPIVersion).String(),
+		serverURL:  u,
+		apiVersion: defaultAPIVersion,
 		httpClient: &http.Client{
 			Transport: http.DefaultTransport,
 		},
@@ -150,6 +143,11 @@ func NewClient(apiServerURL, apiKey string, opts ...Option) (*Client, error) {
 		if err := opt(c); err != nil {
 			return nil, err
 		}
+	}
+
+	// Apply custom base transport if provided
+	if c.baseTransport != nil {
+		c.httpClient.Transport = c.baseTransport
 	}
 
 	// Wrap the transport with token refresh logic
@@ -177,8 +175,10 @@ func NewClient(apiServerURL, apiKey string, opts ...Option) (*Client, error) {
 	return c, nil
 }
 
-// --- Low-Level HTTP Methods ---
-
+// Get performs an authenticated GET request to the given endpoint path,
+// relative to the API server root. It is an escape hatch for endpoints not
+// yet covered by a service — prefer the typed service methods (e.g. Users())
+// when available. v, if non-nil, is populated by JSON-decoding the response body.
 func (c *Client) Get(ctx context.Context, endpoint string, v any) (*http.Response, error) {
 	req, err := c.NewRequest(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
@@ -187,6 +187,7 @@ func (c *Client) Get(ctx context.Context, endpoint string, v any) (*http.Respons
 	return c.Do(req, v)
 }
 
+// Post performs an authenticated POST request. See Get for usage notes.
 func (c *Client) Post(ctx context.Context, endpoint string, body any, v any) (*http.Response, error) {
 	req, err := c.NewRequest(ctx, http.MethodPost, endpoint, body)
 	if err != nil {
@@ -195,6 +196,7 @@ func (c *Client) Post(ctx context.Context, endpoint string, body any, v any) (*h
 	return c.Do(req, v)
 }
 
+// Put performs an authenticated PUT request. See Get for usage notes.
 func (c *Client) Put(ctx context.Context, endpoint string, body any, v any) (*http.Response, error) {
 	req, err := c.NewRequest(ctx, http.MethodPut, endpoint, body)
 	if err != nil {
@@ -203,6 +205,7 @@ func (c *Client) Put(ctx context.Context, endpoint string, body any, v any) (*ht
 	return c.Do(req, v)
 }
 
+// Patch performs an authenticated PATCH request. See Get for usage notes.
 func (c *Client) Patch(ctx context.Context, endpoint string, body any, v any) (*http.Response, error) {
 	req, err := c.NewRequest(ctx, http.MethodPatch, endpoint, body)
 	if err != nil {
@@ -211,6 +214,7 @@ func (c *Client) Patch(ctx context.Context, endpoint string, body any, v any) (*
 	return c.Do(req, v)
 }
 
+// Delete performs an authenticated DELETE request. See Get for usage notes.
 func (c *Client) Delete(ctx context.Context, endpoint string, v any) (*http.Response, error) {
 	req, err := c.NewRequest(ctx, http.MethodDelete, endpoint, nil)
 	if err != nil {
@@ -221,18 +225,7 @@ func (c *Client) Delete(ctx context.Context, endpoint string, v any) (*http.Resp
 
 // NewRequest handles JSON marshaling, context attachment, and header setup.
 func (c *Client) NewRequest(ctx context.Context, method, endpoint string, body any) (*http.Request, error) {
-	u, err := url.Parse(c.baseURL)
-	if err != nil {
-		return nil, err
-	}
-
-	// Ensure endpoint doesn't escape the baseURL path.
-	// JoinPath cleans the path.
-	fullPath, err := url.JoinPath(u.Path, endpoint)
-	if err != nil {
-		return nil, err
-	}
-	u.Path = fullPath
+	u := c.serverURL.JoinPath("api", c.apiVersion, endpoint)
 
 	var buf io.ReadSeeker
 	if body != nil {
@@ -270,25 +263,46 @@ type Error struct {
 
 	// Body is the raw response body.
 	Body []byte
+
+	// Message is a human-readable error message from the API, if any.
+	Message string
+
+	// Cause is the underlying error, if any.
+	Cause error
 }
 
 func (e *Error) Error() string {
+	var msg string
+	if e.Message != "" {
+		msg = fmt.Sprintf(": %s", e.Message)
+	}
+
 	if e.Response != nil && e.Response.Request != nil {
-		return fmt.Sprintf("openrelik: %s %s: %d %s",
+		return fmt.Sprintf("openrelik: %s %s: %s%s",
 			e.Response.Request.Method,
 			e.Response.Request.URL,
-			e.StatusCode,
-			e.Response.Status)
+			e.Response.Status,
+			msg)
 	}
-	return fmt.Sprintf("openrelik: api error: %d", e.StatusCode)
+	return fmt.Sprintf("openrelik: api error: %d%s", e.StatusCode, msg)
+}
+
+func (e *Error) Unwrap() error {
+	return e.Cause
 }
 
 // Do executes the HTTP request and decodes the response into v if provided.
+// If an error occurs during the request or while reading the body, a non-nil
+// *http.Response may still be returned alongside the error if one was received
+// from the server, allowing callers to inspect status codes or headers.
 func (c *Client) Do(req *http.Request, v any) (*http.Response, error) {
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
+	// We defer closing the original response body. It is important to note that
+	// we replace resp.Body with a new NopCloser wrapping the buffered data
+	// before returning, so the caller can still read the response body.
 	defer resp.Body.Close()
 
 	// Read body into memory to allow inspection if decoding fails.
@@ -311,16 +325,36 @@ func (c *Client) Do(req *http.Request, v any) (*http.Response, error) {
 	resp.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if resp.StatusCode >= 400 {
-		return resp, &Error{
+		apiErr := &Error{
 			Response:   resp,
 			StatusCode: resp.StatusCode,
 			Body:       data,
 		}
+
+		// Attempt to decode structured error message.
+		var errorResponse struct {
+			Detail  any `json:"detail"`
+			Message any `json:"message"`
+		}
+		if err := json.Unmarshal(data, &errorResponse); err == nil {
+			if errorResponse.Detail != nil {
+				apiErr.Message = fmt.Sprint(errorResponse.Detail)
+			} else if errorResponse.Message != nil {
+				apiErr.Message = fmt.Sprint(errorResponse.Message)
+			}
+		}
+
+		return resp, apiErr
 	}
 
 	if v != nil {
 		if err := json.Unmarshal(data, v); err != nil {
-			return resp, err
+			return resp, &Error{
+				Response:   resp,
+				StatusCode: resp.StatusCode,
+				Body:       data,
+				Cause:      err,
+			}
 		}
 	}
 
@@ -338,6 +372,10 @@ type tokenRefreshTransport struct {
 	base        http.RoundTripper
 }
 
+func (t *tokenRefreshTransport) isOwnHost(u *url.URL) bool {
+	return t.host != "" && u.Host == t.host && u.Scheme == t.scheme
+}
+
 // RoundTrip adds authentication headers and handles token refresh on 401 responses.
 func (t *tokenRefreshTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	t.mu.RLock()
@@ -348,7 +386,7 @@ func (t *tokenRefreshTransport) RoundTrip(req *http.Request) (*http.Response, er
 	// We clone the request before adding headers to avoid modifying the original
 	// request and to prevent credentials from being leaked during redirects
 	// (Go's http.Client copies headers from the original request, not the clone).
-	if t.host != "" && req.URL.Host == t.host && req.URL.Scheme == t.scheme {
+	if t.isOwnHost(req.URL) {
 		req = req.Clone(req.Context())
 		if t.apiKey != "" {
 			req.Header.Set(headerRefreshToken, t.apiKey)
@@ -363,7 +401,7 @@ func (t *tokenRefreshTransport) RoundTrip(req *http.Request) (*http.Response, er
 		return nil, err
 	}
 
-	if resp.StatusCode == http.StatusUnauthorized && t.host != "" && req.URL.Host == t.host && req.URL.Scheme == t.scheme {
+	if resp.StatusCode == http.StatusUnauthorized && t.isOwnHost(req.URL) {
 		if req.URL.String() == t.refreshURL {
 			return resp, nil
 		}
@@ -371,7 +409,7 @@ func (t *tokenRefreshTransport) RoundTrip(req *http.Request) (*http.Response, er
 		resp.Body.Close()
 
 		// Perform refresh with a write lock
-		newAccessToken, err := t.refreshIfStale(accessToken)
+		newAccessToken, err := t.refreshIfStale(req.Context(), accessToken)
 		if err != nil {
 			return nil, err
 		}
@@ -394,7 +432,7 @@ func (t *tokenRefreshTransport) RoundTrip(req *http.Request) (*http.Response, er
 }
 
 // refreshIfStale ensures only one concurrent refresh happens at a time.
-func (t *tokenRefreshTransport) refreshIfStale(failedToken string) (string, error) {
+func (t *tokenRefreshTransport) refreshIfStale(ctx context.Context, failedToken string) (string, error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
@@ -403,7 +441,7 @@ func (t *tokenRefreshTransport) refreshIfStale(failedToken string) (string, erro
 		return t.accessToken, nil
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), tokenRefreshTimeout)
+	ctx, cancel := context.WithTimeout(ctx, tokenRefreshTimeout)
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, t.refreshURL, nil)
