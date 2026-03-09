@@ -29,8 +29,8 @@ import (
 const (
 	defaultAPIVersion      = "v1"
 	defaultUserAgent       = "openrelik-go-client/1.0"
-	tokenRefreshTimeout    = 10 * time.Second
 	defaultMaxResponseSize = 10 * 1024 * 1024 // 10MB
+	tokenRefreshTimeout    = 10 * time.Second
 
 	headerRefreshToken = "x-openrelik-refresh-token"
 	headerAccessToken  = "x-openrelik-access-token"
