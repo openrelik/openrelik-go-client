@@ -176,9 +176,10 @@ func NewClient(apiServerURL, apiKey string, opts ...Option) (*Client, error) {
 }
 
 // Get performs an authenticated GET request to the given endpoint path,
-// relative to the API server root. It is an escape hatch for endpoints not
-// yet covered by a service — prefer the typed service methods (e.g. Users())
-// when available. v, if non-nil, is populated by JSON-decoding the response body.
+// relative to the versioned API root (e.g. /api/v1/). It is an escape hatch for
+// endpoints not yet covered by a service — prefer the typed service methods
+// (e.g. Users()) when available. v, if non-nil, is populated by JSON-decoding
+// the response body.
 func (c *Client) Get(ctx context.Context, endpoint string, v any) (*http.Response, error) {
 	req, err := c.NewRequest(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {

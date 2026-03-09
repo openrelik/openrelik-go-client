@@ -107,6 +107,8 @@ if err != nil {
 
 For endpoints not yet covered by a typed service, you can use the low-level HTTP methods (`Get`, `Post`, `Put`, `Patch`, `Delete`). These methods handle authentication and automatic token refresh transparently.
 
+Paths should be relative to the versioned API root (e.g. `/api/v1/`).
+
 #### Decoding into a Struct
 ```go
 user := &openrelik.User{}
