@@ -22,10 +22,14 @@ import (
 	"testing"
 )
 
-func setupFoldersTestServer() (mux *http.ServeMux, server *httptest.Server, client *Client) {
+func setupFoldersTestServer(t *testing.T) (mux *http.ServeMux, server *httptest.Server, client *Client) {
 	mux = http.NewServeMux()
 	server = httptest.NewServer(mux)
-	client, _ = NewClient(server.URL, "test-key")
+	var err error
+	client, err = NewClient(server.URL, "test-key")
+	if err != nil {
+		t.Fatalf("failed to create test client: %v", err)
+	}
 	return
 }
 
@@ -33,7 +37,7 @@ func TestFoldersService_GetRootFolders(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("Success", func(t *testing.T) {
-		mux, server, client := setupFoldersTestServer()
+		mux, server, client := setupFoldersTestServer(t)
 		defer server.Close()
 
 		mux.HandleFunc("/api/v1/folders/all/", func(w http.ResponseWriter, r *http.Request) {
@@ -57,8 +61,7 @@ func TestFoldersService_GetRootFolders(t *testing.T) {
 							"profile_picture_url": null,
 							"uuid": "test-user-uuid"
 						},
-						"workflows": [],
-						"selectable": false
+						"workflows": []
 					}
 				],
 				"page": 1,
@@ -94,7 +97,7 @@ func TestFoldersService_GetRootFolders(t *testing.T) {
 	})
 
 	t.Run("API Error", func(t *testing.T) {
-		mux, server, client := setupFoldersTestServer()
+		mux, server, client := setupFoldersTestServer(t)
 		defer server.Close()
 
 		mux.HandleFunc("/api/v1/folders/all/", func(w http.ResponseWriter, r *http.Request) {
@@ -112,7 +115,7 @@ func TestFoldersService_GetSubFolders(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("Success", func(t *testing.T) {
-		mux, server, client := setupFoldersTestServer()
+		mux, server, client := setupFoldersTestServer(t)
 		defer server.Close()
 
 		folderID := 1
@@ -136,8 +139,7 @@ func TestFoldersService_GetSubFolders(t *testing.T) {
 						"profile_picture_url": null,
 						"uuid": "test-user-uuid"
 					},
-					"workflows": [],
-					"selectable": false
+					"workflows": []
 				}
 			]`)
 		})
@@ -161,7 +163,7 @@ func TestFoldersService_GetSubFolders(t *testing.T) {
 	})
 
 	t.Run("API Error", func(t *testing.T) {
-		mux, server, client := setupFoldersTestServer()
+		mux, server, client := setupFoldersTestServer(t)
 		defer server.Close()
 
 		folderID := 1
@@ -180,7 +182,7 @@ func TestFoldersService_GetFiles(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("Success", func(t *testing.T) {
-		mux, server, client := setupFoldersTestServer()
+		mux, server, client := setupFoldersTestServer(t)
 		defer server.Close()
 
 		folderID := 2
@@ -233,7 +235,7 @@ func TestFoldersService_GetFiles(t *testing.T) {
 	})
 
 	t.Run("API Error", func(t *testing.T) {
-		mux, server, client := setupFoldersTestServer()
+		mux, server, client := setupFoldersTestServer(t)
 		defer server.Close()
 
 		folderID := 2
@@ -252,7 +254,7 @@ func TestFoldersService_CreateRootFolder(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("Success", func(t *testing.T) {
-		mux, server, client := setupFoldersTestServer()
+		mux, server, client := setupFoldersTestServer(t)
 		defer server.Close()
 
 		displayName := "New Root Folder"
@@ -295,7 +297,7 @@ func TestFoldersService_CreateRootFolder(t *testing.T) {
 	})
 
 	t.Run("API Error", func(t *testing.T) {
-		mux, server, client := setupFoldersTestServer()
+		mux, server, client := setupFoldersTestServer(t)
 		defer server.Close()
 
 		mux.HandleFunc("/api/v1/folders/", func(w http.ResponseWriter, r *http.Request) {
@@ -313,7 +315,7 @@ func TestFoldersService_CreateSubFolder(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("Success", func(t *testing.T) {
-		mux, server, client := setupFoldersTestServer()
+		mux, server, client := setupFoldersTestServer(t)
 		defer server.Close()
 
 		parentID := 101
@@ -357,7 +359,7 @@ func TestFoldersService_CreateSubFolder(t *testing.T) {
 	})
 
 	t.Run("API Error", func(t *testing.T) {
-		mux, server, client := setupFoldersTestServer()
+		mux, server, client := setupFoldersTestServer(t)
 		defer server.Close()
 
 		parentID := 101

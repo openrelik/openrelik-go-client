@@ -22,18 +22,22 @@ import (
 	"testing"
 )
 
-func setupFilesTestServer() (mux *http.ServeMux, server *httptest.Server, client *Client) {
+func setupFilesTestServer(t *testing.T) (mux *http.ServeMux, server *httptest.Server, client *Client) {
 	mux = http.NewServeMux()
 	server = httptest.NewServer(mux)
-	client, _ = NewClient(server.URL, "test-key")
+	var err error
+	client, err = NewClient(server.URL, "test-key")
+	if err != nil {
+		t.Fatalf("failed to create test client: %v", err)
+	}
 	return
 }
 
-func TestFilesService_GetMetaData(t *testing.T) {
+func TestFilesService_GetMetadata(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("Success", func(t *testing.T) {
-		mux, server, client := setupFilesTestServer()
+		mux, server, client := setupFilesTestServer(t)
 		defer server.Close()
 
 		fileID := 1
@@ -75,9 +79,9 @@ func TestFilesService_GetMetaData(t *testing.T) {
 			}`)
 		})
 
-		file, resp, err := client.Files().GetMetaData(ctx, fileID)
+		file, resp, err := client.Files().GetMetadata(ctx, fileID)
 		if err != nil {
-			t.Fatalf("GetMetaData returned error: %v", err)
+			t.Fatalf("GetMetadata returned error: %v", err)
 		}
 
 		if resp.StatusCode != http.StatusOK {
@@ -102,7 +106,7 @@ func TestFilesService_GetMetaData(t *testing.T) {
 	})
 
 	t.Run("API Error", func(t *testing.T) {
-		mux, server, client := setupFilesTestServer()
+		mux, server, client := setupFilesTestServer(t)
 		defer server.Close()
 
 		fileID := 1
@@ -110,7 +114,7 @@ func TestFilesService_GetMetaData(t *testing.T) {
 			w.WriteHeader(http.StatusNotFound)
 		})
 
-		_, _, err := client.Files().GetMetaData(ctx, fileID)
+		_, _, err := client.Files().GetMetadata(ctx, fileID)
 		if err == nil {
 			t.Error("Expected error for 404 status code")
 		}

@@ -22,10 +22,14 @@ import (
 	"testing"
 )
 
-func setupUsersTestServer() (mux *http.ServeMux, server *httptest.Server, client *Client) {
+func setupUsersTestServer(t *testing.T) (mux *http.ServeMux, server *httptest.Server, client *Client) {
 	mux = http.NewServeMux()
 	server = httptest.NewServer(mux)
-	client, _ = NewClient(server.URL, "test-key")
+	var err error
+	client, err = NewClient(server.URL, "test-key")
+	if err != nil {
+		t.Fatalf("failed to create test client: %v", err)
+	}
 	return
 }
 
@@ -33,7 +37,7 @@ func TestUsersService_GetMe(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("Success", func(t *testing.T) {
-		mux, server, client := setupUsersTestServer()
+		mux, server, client := setupUsersTestServer(t)
 		defer server.Close()
 
 		mux.HandleFunc("/api/v1/users/me/", func(w http.ResponseWriter, r *http.Request) {
@@ -57,7 +61,7 @@ func TestUsersService_GetMe(t *testing.T) {
 			}`)
 		})
 
-		user, resp, err := client.users.GetMe(ctx)
+		user, resp, err := client.Users().GetMe(ctx)
 		if err != nil {
 			t.Fatalf("GetMe returned error: %v", err)
 		}
@@ -72,14 +76,14 @@ func TestUsersService_GetMe(t *testing.T) {
 	})
 
 	t.Run("API Error", func(t *testing.T) {
-		mux, server, client := setupUsersTestServer()
+		mux, server, client := setupUsersTestServer(t)
 		defer server.Close()
 
 		mux.HandleFunc("/api/v1/users/me/", func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusInternalServerError)
 		})
 
-		_, _, err := client.users.GetMe(ctx)
+		_, _, err := client.Users().GetMe(ctx)
 		if err == nil {
 			t.Error("Expected error for 500 status code")
 		}

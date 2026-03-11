@@ -54,8 +54,8 @@ type File struct {
 	User            User       `json:"user"`
 }
 
-// GetMetaData retrieves the metadata for a single file by ID.
-func (s *FilesService) GetMetaData(ctx context.Context, fileID int) (*File, *http.Response, error) {
+// GetMetadata retrieves the metadata for a single file by ID.
+func (s *FilesService) GetMetadata(ctx context.Context, fileID int) (*File, *http.Response, error) {
 	endpoint, err := url.JoinPath("files", strconv.Itoa(fileID))
 	if err != nil {
 		return nil, nil, err

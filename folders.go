@@ -59,7 +59,8 @@ type rootFoldersResponse struct {
 	TotalCount int      `json:"total_count"`
 }
 
-// GetRootFolders retrieves all root folders.
+// GetRootFolders retrieves a page of root folders.
+// TODO: Support pagination parameters in a future update.
 func (s *FoldersService) GetRootFolders(ctx context.Context) ([]Folder, *http.Response, error) {
 	req, err := s.client.NewRequest(ctx, http.MethodGet, "/folders/all/", nil)
 	if err != nil {
