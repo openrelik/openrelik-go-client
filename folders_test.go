@@ -293,6 +293,20 @@ func TestFoldersService_CreateRootFolder(t *testing.T) {
 			t.Errorf("Expected folder ID 10, got %d", folder.ID)
 		}
 	})
+
+	t.Run("API Error", func(t *testing.T) {
+		mux, server, client := setupFoldersTestServer()
+		defer server.Close()
+
+		mux.HandleFunc("/api/v1/folders/", func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusInternalServerError)
+		})
+
+		_, _, err := client.Folders().CreateRootFolder(ctx, "Fail")
+		if err == nil {
+			t.Error("Expected error for 500 status code")
+		}
+	})
 }
 
 func TestFoldersService_CreateSubFolder(t *testing.T) {
@@ -339,6 +353,21 @@ func TestFoldersService_CreateSubFolder(t *testing.T) {
 
 		if folder.ID != 102 {
 			t.Errorf("Expected folder ID 102, got %d", folder.ID)
+		}
+	})
+
+	t.Run("API Error", func(t *testing.T) {
+		mux, server, client := setupFoldersTestServer()
+		defer server.Close()
+
+		parentID := 101
+		mux.HandleFunc(fmt.Sprintf("/api/v1/folders/%d/folders/", parentID), func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusInternalServerError)
+		})
+
+		_, _, err := client.Folders().CreateSubFolder(ctx, parentID, "Fail")
+		if err == nil {
+			t.Error("Expected error for 500 status code")
 		}
 	})
 }
