@@ -39,19 +39,28 @@ func main() {
 func exampleHighLevel(ctx context.Context, client *openrelik.Client) {
 	fmt.Println("--- High-Level Service Pattern ---")
 
-	user, resp, err := client.Users().GetMe(ctx)
+	// User service example
+	user, _, err := client.Users().GetMe(ctx)
 	if err != nil {
-		log.Printf("Service Error: %v\n", err)
-		return
+		log.Printf("User Service Error: %v\n", err)
+	} else {
+		email := "N/A"
+		if user.Email != nil {
+			email = *user.Email
+		}
+		fmt.Printf("User:    %s (%s)\n\n", user.Username, email)
 	}
 
-	email := "N/A"
-	if user.Email != nil {
-		email = *user.Email
+	// Folder service example
+	folders, _, err := client.Folders().GetRootFolders(ctx)
+	if err != nil {
+		log.Printf("Folder Service Error: %v\n", err)
+	} else {
+		fmt.Printf("Folders: Found %d root folders\n", len(folders))
+		for _, f := range folders {
+			fmt.Printf("  - [%d] %s (Created by: %s)\n", f.ID, f.DisplayName, f.User.Username)
+		}
 	}
-
-	fmt.Printf("User:   %s (%s)\n", user.Username, email)
-	fmt.Printf("Status: %s\n", resp.Status)
 }
 
 // exampleLowLevel demonstrates decoding into a struct using low-level methods.
