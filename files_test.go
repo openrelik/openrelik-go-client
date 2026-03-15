@@ -123,6 +123,79 @@ func TestFilesService_GetMetadata(t *testing.T) {
 	})
 }
 
+func TestFilesService_DownloadFile(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("Success", func(t *testing.T) {
+		mux, server, client := setupFilesTestServer(t)
+		defer server.Close()
+
+		fileID := 1
+		expectedContent := "this is a test file content"
+		mux.HandleFunc(fmt.Sprintf("/api/v1/files/%d/download", fileID), func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodGet {
+				t.Errorf("Expected method GET, got %s", r.Method)
+			}
+			w.Header().Set("Content-Disposition", "attachment; filename=\"test.txt\"")
+			w.Header().Set("Content-Length", fmt.Sprint(len(expectedContent)))
+			w.Header().Set("Content-Type", "application/octet-stream")
+			fmt.Fprint(w, expectedContent)
+		})
+
+		body, resp, err := client.Files().DownloadFile(ctx, fileID)
+		if err != nil {
+			t.Fatalf("DownloadFile returned error: %v", err)
+		}
+		defer body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("Expected status 200, got %d", resp.StatusCode)
+		}
+
+		if resp.Header.Get("Content-Length") != fmt.Sprint(len(expectedContent)) {
+			t.Errorf("Expected Content-Length %d, got %s", len(expectedContent), resp.Header.Get("Content-Length"))
+		}
+
+		content, err := io.ReadAll(body)
+		if err != nil {
+			t.Fatalf("Failed to read body: %v", err)
+		}
+
+		if string(content) != expectedContent {
+			t.Errorf("Expected content %q, got %q", expectedContent, string(content))
+		}
+	})
+
+	t.Run("NotFound", func(t *testing.T) {
+		mux, server, client := setupFilesTestServer(t)
+		defer server.Close()
+
+		fileID := 999
+		mux.HandleFunc(fmt.Sprintf("/api/v1/files/%d/download", fileID), func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusNotFound)
+			fmt.Fprint(w, `{"detail": "File not found"}`)
+		})
+
+		_, resp, err := client.Files().DownloadFile(ctx, fileID)
+		if err == nil {
+			t.Fatal("Expected error for 404 status code")
+		}
+
+		if resp.StatusCode != http.StatusNotFound {
+			t.Errorf("Expected status 404, got %d", resp.StatusCode)
+		}
+
+		apiErr, ok := err.(*Error)
+		if !ok {
+			t.Fatalf("Expected *openrelik.Error, got %T", err)
+		}
+
+		if apiErr.Message != "File not found" {
+			t.Errorf("Expected error message 'File not found', got %q", apiErr.Message)
+		}
+	})
+}
+
 func TestFilesService_UploadFile(t *testing.T) {
 	ctx := context.Background()
 

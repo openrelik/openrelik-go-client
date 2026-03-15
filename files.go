@@ -87,6 +87,53 @@ func (s *FilesService) GetMetadata(ctx context.Context, fileID int) (*File, *htt
 	return file, resp, nil
 }
 
+// DownloadFile downloads a file by ID. It returns an io.ReadCloser for streaming
+// the file content, the HTTP response, and any error encountered.
+// The caller is responsible for closing the returned io.ReadCloser.
+func (s *FilesService) DownloadFile(ctx context.Context, fileID int) (io.ReadCloser, *http.Response, error) {
+	endpoint, err := url.JoinPath("files", strconv.Itoa(fileID), "download")
+	if err != nil {
+		return nil, nil, err
+	}
+
+	req, err := s.client.NewRequest(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// We use the client's httpClient directly to support streaming.
+	// client.Do() buffers the entire response body into memory.
+	resp, err := s.client.httpClient.Do(req)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if resp.StatusCode >= 400 {
+		defer resp.Body.Close()
+
+		// Read body into memory to allow inspection.
+		reader := io.Reader(resp.Body)
+		if s.client.maxResponseSize > 0 {
+			reader = io.LimitReader(resp.Body, s.client.maxResponseSize+1)
+		}
+
+		data, err := io.ReadAll(reader)
+		if err != nil {
+			return nil, resp, err
+		}
+
+		if s.client.maxResponseSize > 0 && int64(len(data)) > s.client.maxResponseSize {
+			return nil, resp, fmt.Errorf("openrelik: response body too large (limit %d bytes)", s.client.maxResponseSize)
+		}
+
+		// Repopulate body so it can be read again if needed, matching Client.Do behavior.
+		resp.Body = io.NopCloser(bytes.NewBuffer(data))
+		return nil, resp, s.client.newError(resp, data)
+	}
+
+	return resp.Body, resp, nil
+}
+
 // ProgressCallback is called during upload to report progress.
 // bytesSent is the cumulative number of bytes successfully uploaded so far.
 // totalBytes is the total size of the file being uploaded, or -1 if the size is unknown.
