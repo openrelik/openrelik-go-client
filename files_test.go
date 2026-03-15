@@ -15,8 +15,10 @@
 package openrelik
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -117,6 +119,181 @@ func TestFilesService_GetMetadata(t *testing.T) {
 		_, _, err := client.Files().GetMetadata(ctx, fileID)
 		if err == nil {
 			t.Error("Expected error for 404 status code")
+		}
+	})
+}
+
+func TestFilesService_UploadFile(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("SingleChunkSuccess", func(t *testing.T) {
+		mux, server, client := setupFilesTestServer(t)
+		defer server.Close()
+
+		filename := "test.txt"
+		content := []byte("hello world")
+		folderID := 123
+
+		mux.HandleFunc("/api/v1/files/upload", func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodPost {
+				t.Errorf("Expected method POST, got %s", r.Method)
+			}
+
+			// Check query params
+			q := r.URL.Query()
+			if q.Get("resumableFilename") != filename {
+				t.Errorf("Expected filename %s, got %s", filename, q.Get("resumableFilename"))
+			}
+			if q.Get("resumableChunkNumber") != "1" {
+				t.Errorf("Expected chunk number 1, got %s", q.Get("resumableChunkNumber"))
+			}
+			if q.Get("resumableTotalChunks") != "1" {
+				t.Errorf("Expected total chunks 1, got %s", q.Get("resumableTotalChunks"))
+			}
+			if q.Get("folder_id") != "123" {
+				t.Errorf("Expected folder_id 123, got %s", q.Get("folder_id"))
+			}
+
+			// Check multipart body
+			err := r.ParseMultipartForm(1024)
+			if err != nil {
+				t.Errorf("Failed to parse multipart form: %v", err)
+			}
+			file, _, err := r.FormFile("file")
+			if err != nil {
+				t.Errorf("Failed to get form file: %v", err)
+			}
+			defer file.Close()
+			uploadedContent, _ := io.ReadAll(file)
+			if string(uploadedContent) != string(content) {
+				t.Errorf("Expected content %s, got %s", content, uploadedContent)
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusCreated)
+			fmt.Fprint(w, `{"id": 1, "filename": "test.txt"}`)
+		})
+
+		file, resp, err := client.Files().UploadFile(ctx, folderID, filename, bytes.NewReader(content))
+		if err != nil {
+			t.Fatalf("UploadFile returned error: %v", err)
+		}
+
+		if resp.StatusCode != http.StatusCreated {
+			t.Errorf("Expected status 201, got %d", resp.StatusCode)
+		}
+
+		if file.Filename != filename {
+			t.Errorf("Expected filename %s, got %s", filename, file.Filename)
+		}
+	})
+
+	t.Run("MultiChunkWithProgress", func(t *testing.T) {
+		mux, server, client := setupFilesTestServer(t)
+		defer server.Close()
+
+		filename := "large.dat"
+		content := make([]byte, 100) // 100 bytes
+		chunkSize := 40              // Will result in 3 chunks: 40, 40, 20
+		folderID := 456
+
+		chunkCount := 0
+		progressCalls := 0
+		var lastBytesSent int64
+
+		mux.HandleFunc("/api/v1/files/upload", func(w http.ResponseWriter, r *http.Request) {
+			chunkCount++
+			q := r.URL.Query()
+			if q.Get("resumableChunkNumber") != fmt.Sprint(chunkCount) {
+				t.Errorf("Expected chunk number %d, got %s", chunkCount, q.Get("resumableChunkNumber"))
+			}
+			if q.Get("resumableTotalChunks") != "3" {
+				t.Errorf("Expected total chunks 3, got %s", q.Get("resumableTotalChunks"))
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusCreated)
+			fmt.Fprint(w, `{"id": 1, "filename": "large.dat"}`)
+		})
+
+		file, _, err := client.Files().UploadFile(ctx, folderID, filename, bytes.NewReader(content),
+			WithChunkSize(chunkSize),
+			WithProgress(func(bytesSent, totalBytes int64) {
+				progressCalls++
+				if bytesSent <= lastBytesSent {
+					t.Errorf("Expected bytesSent to increase, got %d <= %d", bytesSent, lastBytesSent)
+				}
+				lastBytesSent = bytesSent
+				if totalBytes != 100 {
+					t.Errorf("Expected totalBytes 100, got %d", totalBytes)
+				}
+			}),
+		)
+
+		if err != nil {
+			t.Fatalf("UploadFile returned error: %v", err)
+		}
+
+		if chunkCount != 3 {
+			t.Errorf("Expected 3 chunks uploaded, got %d", chunkCount)
+		}
+		if progressCalls != 3 {
+			t.Errorf("Expected 3 progress calls, got %d", progressCalls)
+		}
+		if file.ID != 1 {
+			t.Errorf("Expected file ID 1, got %d", file.ID)
+		}
+	})
+
+	t.Run("RetryOn503", func(t *testing.T) {
+		mux, server, client := setupFilesTestServer(t)
+		defer server.Close()
+
+		attempts := 0
+		mux.HandleFunc("/api/v1/files/upload", func(w http.ResponseWriter, r *http.Request) {
+			attempts++
+			if attempts < 2 {
+				w.WriteHeader(http.StatusServiceUnavailable)
+				return
+			}
+			w.WriteHeader(http.StatusCreated)
+			fmt.Fprint(w, `{"id": 1}`)
+		})
+
+		file, resp, err := client.Files().UploadFile(ctx, 1, "test.txt", bytes.NewReader([]byte("data")))
+		if err != nil {
+			t.Fatalf("UploadFile failed: %v", err)
+		}
+
+		if attempts != 2 {
+			t.Errorf("Expected 2 attempts, got %d", attempts)
+		}
+		if resp.StatusCode != http.StatusCreated {
+			t.Errorf("Expected status 201, got %d", resp.StatusCode)
+		}
+		if file.ID != 1 {
+			t.Errorf("Expected file ID 1, got %d", file.ID)
+		}
+	})
+
+	t.Run("AbortOn429", func(t *testing.T) {
+		mux, server, client := setupFilesTestServer(t)
+		defer server.Close()
+
+		attempts := 0
+		mux.HandleFunc("/api/v1/files/upload", func(w http.ResponseWriter, r *http.Request) {
+			attempts++
+			w.WriteHeader(http.StatusTooManyRequests)
+		})
+
+		_, _, err := client.Files().UploadFile(ctx, 1, "test.txt", bytes.NewReader([]byte("data")))
+		if err == nil {
+			t.Fatal("Expected error on 429 status code")
+		}
+
+		// Should not retry on 429
+		if attempts != 1 {
+			t.Errorf("Expected 1 attempt for 429, got %d", attempts)
 		}
 	})
 }

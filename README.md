@@ -103,7 +103,55 @@ if err != nil {
 }
 ```
 
-### Low-Level API (Escape Hatch)
+### File Uploads
+
+The client supports uploading large files using a chunked, resumable mechanism. This approach is highly resilient to network failures, as it only retries the failing chunk rather than the entire file.
+
+#### Basic Upload
+```go
+file, err := os.Open("large-file.dd")
+if err != nil {
+    log.Fatal(err)
+}
+defer file.Close()
+
+// folderID: The ID of the folder to upload to.
+// filename: The name the file will have on the server.
+uploadedFile, _, err := client.Files().UploadFile(ctx, folderID, "large-file.dd", file)
+if err != nil {
+    log.Fatal(err)
+}
+fmt.Printf("File uploaded successfully! ID: %d\n", uploadedFile.ID)
+```
+
+#### Upload with Progress Tracking
+You can provide a progress callback to track the upload status. This is ideal for CLI applications.
+
+```go
+progress := func(bytesSent, totalBytes int64) {
+    if totalBytes > 0 {
+        percent := float64(bytesSent) / float64(totalBytes) * 100
+        fmt.Printf("\rUploading... %.2f%%", percent)
+    } else {
+        fmt.Printf("\rUploading... %d bytes sent", bytesSent)
+    }
+}
+
+uploadedFile, _, err := client.Files().UploadFile(
+    ctx,
+    folderID,
+    "large-file.dd",
+    file,
+    openrelik.WithProgress(progress),
+)
+```
+
+#### Advanced Upload Options
+- `WithChunkSize(size int)`: Customize the size of each chunk (default is 4MB).
+- `WithTotalSize(size int64)`: Explicitly set the total size (required for non-seeking readers like `stdin`).
+- `WithRetry(fn RetryCallback)`: Observe retry attempts during network flakes.
+
+### Low-Level API
 
 For endpoints not yet covered by a typed service, you can use the low-level HTTP methods (`Get`, `Post`, `Put`, `Patch`, `Delete`). These methods handle authentication and automatic token refresh transparently.
 
