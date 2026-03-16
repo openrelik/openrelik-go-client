@@ -340,26 +340,7 @@ func (c *Client) Do(req *http.Request, v any) (*http.Response, error) {
 	resp.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if resp.StatusCode >= 400 {
-		apiErr := &Error{
-			Response:   resp,
-			StatusCode: resp.StatusCode,
-			Body:       data,
-		}
-
-		// Attempt to decode structured error message.
-		var errorResponse struct {
-			Detail  any `json:"detail"`
-			Message any `json:"message"`
-		}
-		if err := json.Unmarshal(data, &errorResponse); err == nil {
-			if errorResponse.Detail != nil {
-				apiErr.Message = fmt.Sprint(errorResponse.Detail)
-			} else if errorResponse.Message != nil {
-				apiErr.Message = fmt.Sprint(errorResponse.Message)
-			}
-		}
-
-		return resp, apiErr
+		return resp, c.newError(resp, data)
 	}
 
 	if v != nil {
@@ -374,6 +355,30 @@ func (c *Client) Do(req *http.Request, v any) (*http.Response, error) {
 	}
 
 	return resp, nil
+}
+
+// newError creates a structured Error from the provided response and body data.
+func (c *Client) newError(resp *http.Response, data []byte) *Error {
+	apiErr := &Error{
+		Response:   resp,
+		StatusCode: resp.StatusCode,
+		Body:       data,
+	}
+
+	// Attempt to decode structured error message.
+	var errorResponse struct {
+		Detail  any `json:"detail"`
+		Message any `json:"message"`
+	}
+	if err := json.Unmarshal(data, &errorResponse); err == nil {
+		if errorResponse.Detail != nil {
+			apiErr.Message = fmt.Sprint(errorResponse.Detail)
+		} else if errorResponse.Message != nil {
+			apiErr.Message = fmt.Sprint(errorResponse.Message)
+		}
+	}
+
+	return apiErr
 }
 
 // tokenRefreshTransport handles automatic auth and concurrent token refresh.

@@ -76,12 +76,12 @@ func main() {
 	}
 
 	// Perform the chunked upload
-	uploadedFile, _, err := client.Files().UploadFile(
+	uploadedFile, _, err := client.Files().Upload(
 		ctx,
 		*folderID,
 		fileInfo.Name(),
 		file,
-		openrelik.WithProgress(progress),
+		openrelik.WithUploadProgress(progress),
 		openrelik.WithTotalSize(totalSize),
 		openrelik.WithChunkSize(4*1024*1024), // 4MB chunks
 	)
@@ -94,7 +94,7 @@ func main() {
 	fmt.Printf("\n\nUpload successful! Fetching metadata...\n")
 
 	// Fetch full metadata for the uploaded file
-	meta, _, err := client.Files().GetMetadata(ctx, uploadedFile.ID)
+	meta, _, err := client.Files().Info(ctx, uploadedFile.ID)
 	if err != nil {
 		fmt.Printf("Failed to fetch metadata: %v\n", err)
 		os.Exit(1)
