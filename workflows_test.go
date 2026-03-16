@@ -123,3 +123,68 @@ func TestWorkflowsService_Create_Error(t *testing.T) {
 		t.Fatal("Expected error when file info fails, got nil")
 	}
 }
+
+func TestWorkflowsService_Run(t *testing.T) {
+	mux, server, client := setupWorkflowsTestServer(t)
+	defer server.Close()
+
+	folderID := 111
+	workflowID := 95
+	specJSON := `{"workflow":{"type":"chain"}}`
+
+	// Mock Workflows.Run
+	mux.HandleFunc(fmt.Sprintf("/api/v1/folders/%d/workflows/%d/run/", folderID, workflowID), func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Errorf("Expected method POST, got %s", r.Method)
+		}
+
+		var reqBody struct {
+			WorkflowSpec json.RawMessage `json:"workflow_spec"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
+			t.Errorf("Failed to decode request body: %v", err)
+		}
+
+		if string(reqBody.WorkflowSpec) != specJSON {
+			t.Errorf("Expected WorkflowSpec %s, got %s", specJSON, string(reqBody.WorkflowSpec))
+		}
+
+		workflow := &Workflow{
+			ID:          workflowID,
+			DisplayName: "Simple Strings Workflow",
+			Tasks: []Task{
+				{
+					ID:          241,
+					DisplayName: "Strings",
+				},
+			},
+		}
+		workflow.Folder.ID = folderID
+		json.NewEncoder(w).Encode(workflow)
+	})
+
+	ctx := context.Background()
+	workflow := &Workflow{
+		ID:       workflowID,
+		SpecJSON: &specJSON,
+	}
+	workflow.Folder.ID = folderID
+
+	updatedWorkflow, resp, err := client.Workflows().Run(ctx, workflow)
+
+	if err != nil {
+		t.Fatalf("Workflows.Run returned error: %v", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("Expected status code %d, got %d", http.StatusOK, resp.StatusCode)
+	}
+
+	if updatedWorkflow.ID != workflowID {
+		t.Errorf("Expected workflow ID %d, got %d", workflowID, updatedWorkflow.ID)
+	}
+
+	if len(updatedWorkflow.Tasks) != 1 {
+		t.Errorf("Expected 1 task, got %d", len(updatedWorkflow.Tasks))
+	}
+}

@@ -16,6 +16,7 @@ package openrelik
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -45,11 +46,37 @@ type Workflow struct {
 		DisplayName string `json:"display_name"`
 		DataType    string `json:"data_type"`
 	} `json:"files"`
-	Tasks  []any `json:"tasks"`
+	Tasks  []Task `json:"tasks"`
 	Folder struct {
 		ID int `json:"id"`
 	} `json:"folder"`
-	Template any `json:"template"`
+	Template *struct {
+		ID          int    `json:"id"`
+		DisplayName string `json:"display_name"`
+	} `json:"template"`
+}
+
+// Task represents a task within a workflow.
+type Task struct {
+	ID             int        `json:"id"`
+	CreatedAt      time.Time  `json:"created_at"`
+	UpdatedAt      time.Time  `json:"updated_at"`
+	DeletedAt      *time.Time `json:"deleted_at"`
+	IsDeleted      bool       `json:"is_deleted"`
+	DisplayName    string     `json:"display_name"`
+	Description    string     `json:"description"`
+	UUID           string     `json:"uuid"`
+	StatusShort    *string    `json:"status_short"`
+	StatusDetail   *string    `json:"status_detail"`
+	StatusProgress *string    `json:"status_progress"`
+	Result         *string    `json:"result"`
+	Runtime        *string    `json:"runtime"`
+	ErrorException *string    `json:"error_exception"`
+	ErrorTraceback *string    `json:"error_traceback"`
+	User           User       `json:"user"`
+	OutputFiles    []any      `json:"output_files"`
+	FileReports    []any      `json:"file_reports"`
+	TaskReport     any        `json:"task_report"`
 }
 
 // WorkflowCreateRequest represents the request body to create a new workflow.
@@ -98,4 +125,40 @@ func (s *WorkflowsService) Create(ctx context.Context, fileIDs []int, templateID
 	}
 
 	return workflow, resp, nil
+}
+
+// Run executes the given workflow on the server.
+func (s *WorkflowsService) Run(ctx context.Context, workflow *Workflow) (*Workflow, *http.Response, error) {
+	if workflow == nil {
+		return nil, nil, fmt.Errorf("openrelik: workflow is required")
+	}
+
+	var spec json.RawMessage
+	if workflow.SpecJSON != nil && *workflow.SpecJSON != "" {
+		spec = json.RawMessage(*workflow.SpecJSON)
+	}
+
+	body := struct {
+		WorkflowSpec json.RawMessage `json:"workflow_spec"`
+	}{
+		WorkflowSpec: spec,
+	}
+
+	endpoint, err := url.JoinPath("folders", strconv.Itoa(workflow.Folder.ID), "workflows", strconv.Itoa(workflow.ID), "run/")
+	if err != nil {
+		return nil, nil, err
+	}
+
+	req, err := s.client.NewRequest(ctx, http.MethodPost, endpoint, body)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	updatedWorkflow := new(Workflow)
+	resp, err := s.client.Do(req, updatedWorkflow)
+	if err != nil {
+		return nil, resp, err
+	}
+
+	return updatedWorkflow, resp, nil
 }
