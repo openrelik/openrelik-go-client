@@ -299,14 +299,20 @@ func (e *Error) Error() string {
 		msg = fmt.Sprintf(": %s", e.Message)
 	}
 
+	var cause string
+	if e.Cause != nil {
+		cause = fmt.Sprintf(" (cause: %v)", e.Cause)
+	}
+
 	if e.Response != nil && e.Response.Request != nil {
-		return fmt.Sprintf("openrelik: %s %s: %s%s",
+		return fmt.Sprintf("openrelik: %s %s: %s%s%s",
 			e.Response.Request.Method,
 			e.Response.Request.URL,
 			e.Response.Status,
-			msg)
+			msg,
+			cause)
 	}
-	return fmt.Sprintf("openrelik: api error: %d%s", e.StatusCode, msg)
+	return fmt.Sprintf("openrelik: api error: %d%s%s", e.StatusCode, msg, cause)
 }
 
 func (e *Error) Unwrap() error {

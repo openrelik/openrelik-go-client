@@ -70,7 +70,7 @@ type Task struct {
 	StatusDetail   *string          `json:"status_detail"`
 	StatusProgress *string          `json:"status_progress"`
 	Result         *string          `json:"result"`
-	Runtime        *string          `json:"runtime"`
+	Runtime        *float64         `json:"runtime"`
 	ErrorException *string          `json:"error_exception"`
 	ErrorTraceback *string          `json:"error_traceback"`
 	User           User             `json:"user"`
@@ -202,4 +202,25 @@ func (s *WorkflowsService) Status(ctx context.Context, workflow *Workflow) (*Wor
 	}
 
 	return status, resp, nil
+}
+
+// Get retrieves a single workflow by folder ID and workflow ID.
+func (s *WorkflowsService) Get(ctx context.Context, folderID, workflowID int) (*Workflow, *http.Response, error) {
+	endpoint, err := url.JoinPath("folders", strconv.Itoa(folderID), "workflows", strconv.Itoa(workflowID))
+	if err != nil {
+		return nil, nil, err
+	}
+
+	req, err := s.client.NewRequest(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	workflow := new(Workflow)
+	resp, err := s.client.Do(req, workflow)
+	if err != nil {
+		return nil, resp, err
+	}
+
+	return workflow, resp, nil
 }
