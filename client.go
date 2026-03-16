@@ -58,9 +58,10 @@ type Client struct {
 	maxResponseSize int64
 
 	// Services used for communicating with different parts of the OpenRelik API.
-	users   *UsersService
-	folders *FoldersService
-	files   *FilesService
+	users     *UsersService
+	folders   *FoldersService
+	files     *FilesService
+	workflows *WorkflowsService
 }
 
 // Users returns the service for communicating with user-related methods of the OpenRelik API.
@@ -76,6 +77,11 @@ func (c *Client) Folders() *FoldersService {
 // Files returns the service for communicating with file-related methods of the OpenRelik API.
 func (c *Client) Files() *FilesService {
 	return c.files
+}
+
+// Workflows returns the service for communicating with workflow-related methods of the OpenRelik API.
+func (c *Client) Workflows() *WorkflowsService {
+	return c.workflows
 }
 
 // Option defines a functional option for configuring the Client.
@@ -185,6 +191,7 @@ func NewClient(apiServerURL, apiKey string, opts ...Option) (*Client, error) {
 	c.users = &UsersService{client: c}
 	c.folders = &FoldersService{client: c}
 	c.files = &FilesService{client: c}
+	c.workflows = &WorkflowsService{client: c}
 
 	return c, nil
 }
