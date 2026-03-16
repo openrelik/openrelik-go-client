@@ -35,7 +35,7 @@ func setupFilesTestServer(t *testing.T) (mux *http.ServeMux, server *httptest.Se
 	return
 }
 
-func TestFilesService_GetMetadata(t *testing.T) {
+func TestFilesService_Info(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("Success", func(t *testing.T) {
@@ -81,9 +81,9 @@ func TestFilesService_GetMetadata(t *testing.T) {
 			}`)
 		})
 
-		file, resp, err := client.Files().GetMetadata(ctx, fileID)
+		file, resp, err := client.Files().Info(ctx, fileID)
 		if err != nil {
-			t.Fatalf("GetMetadata returned error: %v", err)
+			t.Fatalf("Info returned error: %v", err)
 		}
 
 		if resp.StatusCode != http.StatusOK {
@@ -116,14 +116,14 @@ func TestFilesService_GetMetadata(t *testing.T) {
 			w.WriteHeader(http.StatusNotFound)
 		})
 
-		_, _, err := client.Files().GetMetadata(ctx, fileID)
+		_, _, err := client.Files().Info(ctx, fileID)
 		if err == nil {
 			t.Error("Expected error for 404 status code")
 		}
 	})
 }
 
-func TestFilesService_DownloadFile(t *testing.T) {
+func TestFilesService_Download(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("Success", func(t *testing.T) {
@@ -142,9 +142,9 @@ func TestFilesService_DownloadFile(t *testing.T) {
 			fmt.Fprint(w, expectedContent)
 		})
 
-		body, resp, err := client.Files().DownloadFile(ctx, fileID)
+		body, resp, err := client.Files().Download(ctx, fileID)
 		if err != nil {
-			t.Fatalf("DownloadFile returned error: %v", err)
+			t.Fatalf("Download returned error: %v", err)
 		}
 		defer body.Close()
 
@@ -176,7 +176,7 @@ func TestFilesService_DownloadFile(t *testing.T) {
 			fmt.Fprint(w, `{"detail": "File not found"}`)
 		})
 
-		_, resp, err := client.Files().DownloadFile(ctx, fileID)
+		_, resp, err := client.Files().Download(ctx, fileID)
 		if err == nil {
 			t.Fatal("Expected error for 404 status code")
 		}
@@ -196,7 +196,7 @@ func TestFilesService_DownloadFile(t *testing.T) {
 	})
 }
 
-func TestFilesService_UploadFile(t *testing.T) {
+func TestFilesService_Upload(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("SingleChunkSuccess", func(t *testing.T) {
@@ -247,9 +247,9 @@ func TestFilesService_UploadFile(t *testing.T) {
 			fmt.Fprint(w, `{"id": 1, "filename": "test.txt"}`)
 		})
 
-		file, resp, err := client.Files().UploadFile(ctx, folderID, filename, bytes.NewReader(content))
+		file, resp, err := client.Files().Upload(ctx, folderID, filename, bytes.NewReader(content))
 		if err != nil {
-			t.Fatalf("UploadFile returned error: %v", err)
+			t.Fatalf("Upload returned error: %v", err)
 		}
 
 		if resp.StatusCode != http.StatusCreated {
@@ -289,9 +289,9 @@ func TestFilesService_UploadFile(t *testing.T) {
 			fmt.Fprint(w, `{"id": 1, "filename": "large.dat"}`)
 		})
 
-		file, _, err := client.Files().UploadFile(ctx, folderID, filename, bytes.NewReader(content),
+		file, _, err := client.Files().Upload(ctx, folderID, filename, bytes.NewReader(content),
 			WithChunkSize(chunkSize),
-			WithProgress(func(bytesSent, totalBytes int64) {
+			WithUploadProgress(func(bytesSent, totalBytes int64) {
 				progressCalls++
 				if bytesSent <= lastBytesSent {
 					t.Errorf("Expected bytesSent to increase, got %d <= %d", bytesSent, lastBytesSent)
@@ -304,7 +304,7 @@ func TestFilesService_UploadFile(t *testing.T) {
 		)
 
 		if err != nil {
-			t.Fatalf("UploadFile returned error: %v", err)
+			t.Fatalf("Upload returned error: %v", err)
 		}
 
 		if chunkCount != 3 {
@@ -333,9 +333,9 @@ func TestFilesService_UploadFile(t *testing.T) {
 			fmt.Fprint(w, `{"id": 1}`)
 		})
 
-		file, resp, err := client.Files().UploadFile(ctx, 1, "test.txt", bytes.NewReader([]byte("data")))
+		file, resp, err := client.Files().Upload(ctx, 1, "test.txt", bytes.NewReader([]byte("data")))
 		if err != nil {
-			t.Fatalf("UploadFile failed: %v", err)
+			t.Fatalf("Upload failed: %v", err)
 		}
 
 		if attempts != 2 {
@@ -359,7 +359,7 @@ func TestFilesService_UploadFile(t *testing.T) {
 			w.WriteHeader(http.StatusTooManyRequests)
 		})
 
-		_, _, err := client.Files().UploadFile(ctx, 1, "test.txt", bytes.NewReader([]byte("data")))
+		_, _, err := client.Files().Upload(ctx, 1, "test.txt", bytes.NewReader([]byte("data")))
 		if err == nil {
 			t.Fatal("Expected error on 429 status code")
 		}

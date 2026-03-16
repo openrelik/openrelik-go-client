@@ -117,7 +117,7 @@ defer file.Close()
 
 // folderID: The ID of the folder to upload to.
 // filename: The name the file will have on the server.
-uploadedFile, _, err := client.Files().UploadFile(ctx, folderID, "large-file.dd", file)
+uploadedFile, _, err := client.Files().Upload(ctx, folderID, "large-file.dd", file)
 if err != nil {
     log.Fatal(err)
 }
@@ -137,19 +137,48 @@ progress := func(bytesSent, totalBytes int64) {
     }
 }
 
-uploadedFile, _, err := client.Files().UploadFile(
+uploadedFile, _, err := client.Files().Upload(
     ctx,
     folderID,
     "large-file.dd",
     file,
-    openrelik.WithProgress(progress),
+    openrelik.WithUploadProgress(progress),
 )
 ```
 
 #### Advanced Upload Options
 - `WithChunkSize(size int)`: Customize the size of each chunk (default is 4MB).
 - `WithTotalSize(size int64)`: Explicitly set the total size (required for non-seeking readers like `stdin`).
-- `WithRetry(fn RetryCallback)`: Observe retry attempts during network flakes.
+- `WithUploadRetry(fn RetryCallback)`: Observe retry attempts during network flakes.
+
+### File Operations
+
+#### Get File Info
+```go
+file, _, err := client.Files().Info(ctx, fileID)
+if err != nil {
+    log.Fatal(err)
+}
+fmt.Printf("File: %s (Size: %d)\n", file.DisplayName, file.Filesize)
+```
+
+#### Download a File
+```go
+body, _, err := client.Files().Download(ctx, fileID)
+if err != nil {
+    log.Fatal(err)
+}
+defer body.Close()
+
+// Stream the file to a local file
+outFile, err := os.Create("downloaded-file.dd")
+if err != nil {
+    log.Fatal(err)
+}
+defer outFile.Close()
+
+io.Copy(outFile, body)
+```
 
 ### Low-Level API
 
