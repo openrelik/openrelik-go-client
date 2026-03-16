@@ -58,25 +58,41 @@ type Workflow struct {
 
 // Task represents a task within a workflow.
 type Task struct {
-	ID             int        `json:"id"`
-	CreatedAt      time.Time  `json:"created_at"`
-	UpdatedAt      time.Time  `json:"updated_at"`
-	DeletedAt      *time.Time `json:"deleted_at"`
-	IsDeleted      bool       `json:"is_deleted"`
-	DisplayName    string     `json:"display_name"`
-	Description    string     `json:"description"`
-	UUID           string     `json:"uuid"`
-	StatusShort    *string    `json:"status_short"`
-	StatusDetail   *string    `json:"status_detail"`
-	StatusProgress *string    `json:"status_progress"`
-	Result         *string    `json:"result"`
-	Runtime        *string    `json:"runtime"`
-	ErrorException *string    `json:"error_exception"`
-	ErrorTraceback *string    `json:"error_traceback"`
-	User           User       `json:"user"`
-	OutputFiles    []any      `json:"output_files"`
-	FileReports    []any      `json:"file_reports"`
-	TaskReport     any        `json:"task_report"`
+	ID             int              `json:"id"`
+	CreatedAt      time.Time        `json:"created_at"`
+	UpdatedAt      time.Time        `json:"updated_at"`
+	DeletedAt      *time.Time       `json:"deleted_at"`
+	IsDeleted      bool             `json:"is_deleted"`
+	DisplayName    string           `json:"display_name"`
+	Description    string           `json:"description"`
+	UUID           string           `json:"uuid"`
+	StatusShort    *string          `json:"status_short"`
+	StatusDetail   *string          `json:"status_detail"`
+	StatusProgress *string          `json:"status_progress"`
+	Result         *string          `json:"result"`
+	Runtime        *string          `json:"runtime"`
+	ErrorException *string          `json:"error_exception"`
+	ErrorTraceback *string          `json:"error_traceback"`
+	User           User             `json:"user"`
+	OutputFiles    []TaskOutputFile `json:"output_files"`
+	FileReports    []any            `json:"file_reports"`
+	TaskReport     any              `json:"task_report"`
+}
+
+// TaskOutputFile represents a file produced by a task.
+type TaskOutputFile struct {
+	ID          int    `json:"id"`
+	DisplayName string `json:"display_name"`
+	Filesize    int64  `json:"filesize"`
+	UUID        string `json:"uuid"`
+	FolderID    int    `json:"folder_id"`
+	IsDeleted   bool   `json:"is_deleted"`
+}
+
+// WorkflowStatus represents the status of a workflow and its tasks.
+type WorkflowStatus struct {
+	Status string `json:"status"`
+	Tasks  []Task `json:"tasks"`
 }
 
 // WorkflowCreateRequest represents the request body to create a new workflow.
@@ -161,4 +177,29 @@ func (s *WorkflowsService) Run(ctx context.Context, workflow *Workflow) (*Workfl
 	}
 
 	return updatedWorkflow, resp, nil
+}
+
+// Status retrieves the current status of the given workflow.
+func (s *WorkflowsService) Status(ctx context.Context, workflow *Workflow) (*WorkflowStatus, *http.Response, error) {
+	if workflow == nil {
+		return nil, nil, fmt.Errorf("openrelik: workflow is required")
+	}
+
+	endpoint, err := url.JoinPath("folders", strconv.Itoa(workflow.Folder.ID), "workflows", strconv.Itoa(workflow.ID), "status")
+	if err != nil {
+		return nil, nil, err
+	}
+
+	req, err := s.client.NewRequest(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	status := new(WorkflowStatus)
+	resp, err := s.client.Do(req, status)
+	if err != nil {
+		return nil, resp, err
+	}
+
+	return status, resp, nil
 }

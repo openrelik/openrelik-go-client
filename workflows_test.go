@@ -188,3 +188,62 @@ func TestWorkflowsService_Run(t *testing.T) {
 		t.Errorf("Expected 1 task, got %d", len(updatedWorkflow.Tasks))
 	}
 }
+
+func TestWorkflowsService_Status(t *testing.T) {
+	mux, server, client := setupWorkflowsTestServer(t)
+	defer server.Close()
+
+	folderID := 113
+	workflowID := 97
+
+	// Mock Workflows.Status
+	mux.HandleFunc(fmt.Sprintf("/api/v1/folders/%d/workflows/%d/status", folderID, workflowID), func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Errorf("Expected method GET, got %s", r.Method)
+		}
+
+		status := &WorkflowStatus{
+			Status: "COMPLETE",
+			Tasks: []Task{
+				{
+					ID:          243,
+					DisplayName: "Strings",
+					StatusShort: stringPtr("SUCCESS"),
+				},
+			},
+		}
+		json.NewEncoder(w).Encode(status)
+	})
+
+	ctx := context.Background()
+	workflow := &Workflow{
+		ID: workflowID,
+	}
+	workflow.Folder.ID = folderID
+
+	status, resp, err := client.Workflows().Status(ctx, workflow)
+
+	if err != nil {
+		t.Fatalf("Workflows.Status returned error: %v", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("Expected status code %d, got %d", http.StatusOK, resp.StatusCode)
+	}
+
+	if status.Status != "COMPLETE" {
+		t.Errorf("Expected status 'COMPLETE', got %q", status.Status)
+	}
+
+	if len(status.Tasks) != 1 {
+		t.Errorf("Expected 1 task, got %d", len(status.Tasks))
+	}
+
+	if *status.Tasks[0].StatusShort != "SUCCESS" {
+		t.Errorf("Expected task status 'SUCCESS', got %q", *status.Tasks[0].StatusShort)
+	}
+}
+
+func stringPtr(s string) *string {
+	return &s
+}
