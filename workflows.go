@@ -31,29 +31,26 @@ type WorkflowsService struct {
 
 // Workflow represents a workflow within the OpenRelik system.
 type Workflow struct {
-	ID          int        `json:"id"`
-	CreatedAt   time.Time  `json:"created_at"`
-	UpdatedAt   time.Time  `json:"updated_at"`
-	DeletedAt   *time.Time `json:"deleted_at"`
-	IsDeleted   bool       `json:"is_deleted"`
-	DisplayName string     `json:"display_name"`
-	Description *string    `json:"description"`
-	SpecJSON    *string    `json:"spec_json"`
-	UUID        string     `json:"uuid"`
-	User        User       `json:"user"`
-	Files       []struct {
-		ID          int    `json:"id"`
-		DisplayName string `json:"display_name"`
-		DataType    string `json:"data_type"`
-	} `json:"files"`
-	Tasks  []Task `json:"tasks"`
-	Folder struct {
-		ID int `json:"id"`
-	} `json:"folder"`
-	Template *struct {
-		ID          int    `json:"id"`
-		DisplayName string `json:"display_name"`
-	} `json:"template"`
+	ID          int               `json:"id"`
+	CreatedAt   time.Time         `json:"created_at"`
+	UpdatedAt   time.Time         `json:"updated_at"`
+	DeletedAt   *time.Time        `json:"deleted_at"`
+	IsDeleted   bool              `json:"is_deleted"`
+	DisplayName string            `json:"display_name"`
+	Description *string           `json:"description"`
+	SpecJSON    *string           `json:"spec_json"`
+	UUID        string            `json:"uuid"`
+	User        User              `json:"user"`
+	Files       []FolderFile      `json:"files"`
+	Tasks       []Task            `json:"tasks"`
+	Folder      Folder            `json:"folder"`
+	Template    *WorkflowTemplate `json:"template"`
+}
+
+// WorkflowTemplate represents a template used to create a workflow.
+type WorkflowTemplate struct {
+	ID          int    `json:"id"`
+	DisplayName string `json:"display_name"`
 }
 
 // Task represents a task within a workflow.
@@ -104,24 +101,26 @@ type WorkflowCreateRequest struct {
 }
 
 // Create creates a new workflow on the server.
-// It fetches the folder ID from the first input file using the files.Info() method.
-func (s *WorkflowsService) Create(ctx context.Context, fileIDs []int, templateID *int) (*Workflow, *http.Response, error) {
+// If folderID is 0, it fetches the folder ID from the first input file using the files.Info() method.
+func (s *WorkflowsService) Create(ctx context.Context, folderID int, fileIDs []int, templateID *int, templateParams map[string]any) (*Workflow, *http.Response, error) {
 	if len(fileIDs) == 0 {
 		return nil, nil, fmt.Errorf("openrelik: at least one file ID is required to create a workflow")
 	}
 
-	// Fetch file info to get the folder ID.
-	file, _, err := s.client.Files().Info(ctx, fileIDs[0])
-	if err != nil {
-		return nil, nil, fmt.Errorf("openrelik: failed to fetch file info for file ID %d: %w", fileIDs[0], err)
+	// Resolve folder ID if not provided.
+	if folderID == 0 {
+		file, _, err := s.client.Files().Info(ctx, fileIDs[0])
+		if err != nil {
+			return nil, nil, fmt.Errorf("openrelik: failed to fetch file info for file ID %d: %w", fileIDs[0], err)
+		}
+		folderID = file.Folder.ID
 	}
 
-	folderID := file.Folder.ID
-
 	requestBody := &WorkflowCreateRequest{
-		FolderID:   folderID,
-		FileIDs:    fileIDs,
-		TemplateID: templateID,
+		FolderID:       folderID,
+		FileIDs:        fileIDs,
+		TemplateID:     templateID,
+		TemplateParams: templateParams,
 	}
 
 	endpoint, err := url.JoinPath("folders", strconv.Itoa(folderID), "workflows/")

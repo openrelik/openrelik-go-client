@@ -74,6 +74,10 @@ func TestWorkflowsService_Create(t *testing.T) {
 			t.Errorf("Expected file IDs [%d], got %v", fileID, req.FileIDs)
 		}
 
+		if req.TemplateParams["test"] != "param" {
+			t.Errorf("Expected TemplateParams['test'] 'param', got %v", req.TemplateParams["test"])
+		}
+
 		workflow := &Workflow{
 			ID:          workflowID,
 			DisplayName: "Untitled workflow",
@@ -84,14 +88,22 @@ func TestWorkflowsService_Create(t *testing.T) {
 
 	ctx := context.Background()
 	fileIDs := []int{fileID}
-	workflow, resp, err := client.Workflows().Create(ctx, fileIDs, nil)
+	params := map[string]any{"test": "param"}
+	// Test with explicit folderID
+	workflow, resp, err := client.Workflows().Create(ctx, folderID, fileIDs, nil, params)
 
 	if err != nil {
-		t.Fatalf("Workflows.Create returned error: %v", err)
+		t.Fatalf("Workflows.Create (explicit folderID) returned error: %v", err)
 	}
 
 	if resp.StatusCode != http.StatusCreated {
 		t.Errorf("Expected status code %d, got %d", http.StatusCreated, resp.StatusCode)
+	}
+
+	// Test with folderID resolution (0)
+	workflow, _, err = client.Workflows().Create(ctx, 0, fileIDs, nil, params)
+	if err != nil {
+		t.Fatalf("Workflows.Create (resolved folderID) returned error: %v", err)
 	}
 
 	if workflow.ID != workflowID {
@@ -117,7 +129,7 @@ func TestWorkflowsService_Create_Error(t *testing.T) {
 
 	ctx := context.Background()
 	fileIDs := []int{fileID}
-	_, _, err := client.Workflows().Create(ctx, fileIDs, nil)
+	_, _, err := client.Workflows().Create(ctx, 0, fileIDs, nil, nil)
 
 	if err == nil {
 		t.Fatal("Expected error when file info fails, got nil")
