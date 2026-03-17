@@ -109,11 +109,14 @@ func (s *WorkflowsService) Create(ctx context.Context, folderID int, fileIDs []i
 
 	// Resolve folder ID if not provided.
 	if folderID == 0 {
-		file, _, err := s.client.Files().Info(ctx, fileIDs[0])
+		file, resp, err := s.client.Files().Info(ctx, fileIDs[0])
 		if err != nil {
-			return nil, nil, fmt.Errorf("openrelik: failed to fetch file info for file ID %d: %w", fileIDs[0], err)
+			return nil, resp, fmt.Errorf("openrelik: failed to fetch file info for file ID %d: %w", fileIDs[0], err)
 		}
 		folderID = file.Folder.ID
+		if folderID == 0 {
+			return nil, resp, fmt.Errorf("openrelik: could not resolve folder ID for file ID %d", fileIDs[0])
+		}
 	}
 
 	requestBody := &WorkflowCreateRequest{
@@ -142,15 +145,11 @@ func (s *WorkflowsService) Create(ctx context.Context, folderID int, fileIDs []i
 	return workflow, resp, nil
 }
 
-// Run executes the given workflow on the server.
-func (s *WorkflowsService) Run(ctx context.Context, workflow *Workflow) (*Workflow, *http.Response, error) {
-	if workflow == nil {
-		return nil, nil, fmt.Errorf("openrelik: workflow is required")
-	}
-
+// Run executes a workflow on the server by its ID.
+func (s *WorkflowsService) Run(ctx context.Context, folderID, workflowID int, specJSON *string) (*Workflow, *http.Response, error) {
 	var spec json.RawMessage
-	if workflow.SpecJSON != nil && *workflow.SpecJSON != "" {
-		spec = json.RawMessage(*workflow.SpecJSON)
+	if specJSON != nil && *specJSON != "" {
+		spec = json.RawMessage(*specJSON)
 	}
 
 	body := struct {
@@ -159,7 +158,7 @@ func (s *WorkflowsService) Run(ctx context.Context, workflow *Workflow) (*Workfl
 		WorkflowSpec: spec,
 	}
 
-	endpoint, err := url.JoinPath("folders", strconv.Itoa(workflow.Folder.ID), "workflows", strconv.Itoa(workflow.ID), "run/")
+	endpoint, err := url.JoinPath("folders", strconv.Itoa(folderID), "workflows", strconv.Itoa(workflowID), "run/")
 	if err != nil {
 		return nil, nil, err
 	}
@@ -178,13 +177,9 @@ func (s *WorkflowsService) Run(ctx context.Context, workflow *Workflow) (*Workfl
 	return updatedWorkflow, resp, nil
 }
 
-// Status retrieves the current status of the given workflow.
-func (s *WorkflowsService) Status(ctx context.Context, workflow *Workflow) (*WorkflowStatus, *http.Response, error) {
-	if workflow == nil {
-		return nil, nil, fmt.Errorf("openrelik: workflow is required")
-	}
-
-	endpoint, err := url.JoinPath("folders", strconv.Itoa(workflow.Folder.ID), "workflows", strconv.Itoa(workflow.ID), "status")
+// Status retrieves the current status of a workflow by its ID.
+func (s *WorkflowsService) Status(ctx context.Context, folderID, workflowID int) (*WorkflowStatus, *http.Response, error) {
+	endpoint, err := url.JoinPath("folders", strconv.Itoa(folderID), "workflows", strconv.Itoa(workflowID), "status/")
 	if err != nil {
 		return nil, nil, err
 	}

@@ -129,10 +129,57 @@ func TestWorkflowsService_Create_Error(t *testing.T) {
 
 	ctx := context.Background()
 	fileIDs := []int{fileID}
-	_, _, err := client.Workflows().Create(ctx, 0, fileIDs, nil, nil)
+	_, resp, err := client.Workflows().Create(ctx, 0, fileIDs, nil, nil)
 
 	if err == nil {
 		t.Fatal("Expected error when file info fails, got nil")
+	}
+
+	if resp == nil {
+		t.Fatal("Expected response when file info fails, got nil")
+	}
+
+	if resp.StatusCode != http.StatusNotFound {
+		t.Errorf("Expected status code %d, got %d", http.StatusNotFound, resp.StatusCode)
+	}
+}
+
+func TestWorkflowsService_Create_FolderIDZero(t *testing.T) {
+	mux, server, client := setupWorkflowsTestServer(t)
+	defer server.Close()
+
+	fileID := 345
+
+	// Mock Files.Info to return a file with no folder ID
+	mux.HandleFunc(fmt.Sprintf("/api/v1/files/%d", fileID), func(w http.ResponseWriter, r *http.Request) {
+		file := &File{
+			ID: fileID,
+			Folder: Folder{
+				ID: 0,
+			},
+		}
+		json.NewEncoder(w).Encode(file)
+	})
+
+	ctx := context.Background()
+	fileIDs := []int{fileID}
+	_, resp, err := client.Workflows().Create(ctx, 0, fileIDs, nil, nil)
+
+	if err == nil {
+		t.Fatal("Expected error when folder ID resolution results in 0, got nil")
+	}
+
+	if resp == nil {
+		t.Fatal("Expected response when folder ID resolution results in 0, got nil")
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("Expected status code %d, got %d", http.StatusOK, resp.StatusCode)
+	}
+
+	expectedError := fmt.Sprintf("openrelik: could not resolve folder ID for file ID %d", fileID)
+	if err.Error() != expectedError {
+		t.Errorf("Expected error %q, got %q", expectedError, err.Error())
 	}
 }
 
@@ -176,13 +223,7 @@ func TestWorkflowsService_Run(t *testing.T) {
 	})
 
 	ctx := context.Background()
-	workflow := &Workflow{
-		ID:       workflowID,
-		SpecJSON: &specJSON,
-	}
-	workflow.Folder.ID = folderID
-
-	updatedWorkflow, resp, err := client.Workflows().Run(ctx, workflow)
+	updatedWorkflow, resp, err := client.Workflows().Run(ctx, folderID, workflowID, &specJSON)
 
 	if err != nil {
 		t.Fatalf("Workflows.Run returned error: %v", err)
@@ -209,7 +250,7 @@ func TestWorkflowsService_Status(t *testing.T) {
 	workflowID := 97
 
 	// Mock Workflows.Status
-	mux.HandleFunc(fmt.Sprintf("/api/v1/folders/%d/workflows/%d/status", folderID, workflowID), func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc(fmt.Sprintf("/api/v1/folders/%d/workflows/%d/status/", folderID, workflowID), func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			t.Errorf("Expected method GET, got %s", r.Method)
 		}
@@ -228,12 +269,7 @@ func TestWorkflowsService_Status(t *testing.T) {
 	})
 
 	ctx := context.Background()
-	workflow := &Workflow{
-		ID: workflowID,
-	}
-	workflow.Folder.ID = folderID
-
-	status, resp, err := client.Workflows().Status(ctx, workflow)
+	status, resp, err := client.Workflows().Status(ctx, folderID, workflowID)
 
 	if err != nil {
 		t.Fatalf("Workflows.Status returned error: %v", err)
