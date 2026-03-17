@@ -145,7 +145,7 @@ func (s *WorkflowsService) Create(ctx context.Context, folderID int, fileIDs []i
 	return workflow, resp, nil
 }
 
-// Run executes a workflow on the server by its ID.
+// Run executes a workflow on the server by its ID and provided workflow specification.
 func (s *WorkflowsService) Run(ctx context.Context, folderID, workflowID int, specJSON *string) (*Workflow, *http.Response, error) {
 	var spec json.RawMessage
 	if specJSON != nil && *specJSON != "" {
