@@ -6,22 +6,27 @@ import (
 
 	"github.com/openrelik/openrelik-go-client"
 	"github.com/openrelik/openrelik-go-client/cmd/cli/internal/config"
+	"github.com/openrelik/openrelik-go-client/cmd/cli/internal/util"
 	"github.com/spf13/cobra"
 )
 
 var (
-	serverURL string
-	apiKey    string
+	serverURL    string
+	apiKey       string
+	outputFormat string
+	quiet        bool
 )
 
 func NewRootCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "openrelik",
-		Short: "OpenRelik CLI client",
-		Long:  `A command line tool to interact with the OpenRelik API`,
+		Use:              "openrelik",
+		Short:            "OpenRelik CLI client",
+		Long:             `A command line tool to interact with the OpenRelik API`,
+		TraverseChildren: true,
 	}
 
-	cmd.PersistentFlags().StringVarP(&serverURL, "server", "s", "", "OpenRelik server URL (e.g. http://localhost:8710)")
+	cmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", "text", "Output format (text, json)")
+	cmd.PersistentFlags().BoolVarP(&quiet, "quiet", "q", false, "Suppress all output")
 
 	cmd.AddCommand(newAuthCmd())
 	cmd.AddCommand(newUsersCmd())
@@ -51,13 +56,27 @@ func newClient() (*openrelik.Client, error) {
 	}
 
 	if s == "" {
-		return nil, fmt.Errorf("server URL is required (use --server, OPENRELIK_SERVER_URL env var, or run 'openrelik auth login')")
+		return nil, fmt.Errorf("server URL is required (use OPENRELIK_SERVER_URL env var, or run 'openrelik auth login')")
 	}
 	if k == "" {
 		return nil, fmt.Errorf("API key is required (use OPENRELIK_API_KEY env var, or run 'openrelik auth login')")
 	}
 
 	return openrelik.NewClient(s, k)
+}
+
+// formatAndPrint outputs the result in the requested format.
+func formatAndPrint(cmd *cobra.Command, result interface{}) error {
+	if quiet {
+		return nil
+	}
+	switch outputFormat {
+	case "json":
+		return util.FprintJSON(cmd.OutOrStdout(), result)
+	default:
+		util.FprintStruct(cmd.OutOrStdout(), result)
+		return nil
+	}
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.

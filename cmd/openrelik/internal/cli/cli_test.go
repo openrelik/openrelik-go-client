@@ -13,10 +13,19 @@ func TestNewClient(t *testing.T) {
 	config.SetBaseDir(tmpDir)
 	defer config.SetBaseDir("")
 
+	// Helper to reset globals
+	resetGlobals := func() {
+		serverURL = ""
+		apiKey = ""
+		os.Unsetenv("OPENRELIK_SERVER_URL")
+		os.Unsetenv("OPENRELIK_API_KEY")
+	}
+
 	t.Run("Flags", func(t *testing.T) {
+		resetGlobals()
+		defer resetGlobals()
 		serverURL = "http://flag-server"
 		apiKey = "flag-key"
-		defer func() { serverURL = ""; apiKey = "" }()
 
 		client, err := newClient()
 		if err != nil {
@@ -28,14 +37,10 @@ func TestNewClient(t *testing.T) {
 	})
 
 	t.Run("EnvVars", func(t *testing.T) {
-		serverURL = ""
-		apiKey = ""
+		resetGlobals()
+		defer resetGlobals()
 		os.Setenv("OPENRELIK_SERVER_URL", "http://env-server")
 		os.Setenv("OPENRELIK_API_KEY", "env-key")
-		defer func() {
-			os.Unsetenv("OPENRELIK_SERVER_URL")
-			os.Unsetenv("OPENRELIK_API_KEY")
-		}()
 
 		client, err := newClient()
 		if err != nil {
@@ -47,10 +52,8 @@ func TestNewClient(t *testing.T) {
 	})
 
 	t.Run("ConfigFallback", func(t *testing.T) {
-		serverURL = ""
-		apiKey = ""
-		os.Unsetenv("OPENRELIK_SERVER_URL")
-		os.Unsetenv("OPENRELIK_API_KEY")
+		resetGlobals()
+		defer resetGlobals()
 
 		config.SaveSettings(&config.Settings{ServerURL: "http://config-server"})
 		config.SaveCredentials(&config.Credentials{APIKey: "config-key"})
@@ -65,10 +68,9 @@ func TestNewClient(t *testing.T) {
 	})
 
 	t.Run("MissingServer", func(t *testing.T) {
-		serverURL = ""
+		resetGlobals()
+		defer resetGlobals()
 		apiKey = "some-key"
-		os.Unsetenv("OPENRELIK_SERVER_URL")
-		os.Unsetenv("OPENRELIK_API_KEY")
 		// Remove config files
 		dir, _ := config.GetConfigDir()
 		os.RemoveAll(dir)
@@ -80,10 +82,9 @@ func TestNewClient(t *testing.T) {
 	})
 
 	t.Run("MissingKey", func(t *testing.T) {
+		resetGlobals()
+		defer resetGlobals()
 		serverURL = "http://some-server"
-		apiKey = ""
-		os.Unsetenv("OPENRELIK_SERVER_URL")
-		os.Unsetenv("OPENRELIK_API_KEY")
 		// Remove config files
 		dir, _ := config.GetConfigDir()
 		os.RemoveAll(dir)

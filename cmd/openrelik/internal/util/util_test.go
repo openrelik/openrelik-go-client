@@ -94,3 +94,27 @@ func TestFprintStruct(t *testing.T) {
 		})
 	}
 }
+
+func TestFprintJSON(t *testing.T) {
+	ts := testStruct{
+		Name: "Test User",
+		Age:  30,
+	}
+
+	var buf bytes.Buffer
+	if err := FprintJSON(&buf, ts); err != nil {
+		t.Fatalf("FprintJSON failed: %v", err)
+	}
+
+	output := buf.String()
+	expected := `{
+  "Name": "Test User",
+  "Age": 30,
+  "Ptr": null,
+  "NilPtr": null
+}
+`
+	if output != expected {
+		t.Errorf("expected JSON:\n%q\ngot:\n%q", expected, output)
+	}
+}

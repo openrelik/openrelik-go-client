@@ -1,6 +1,7 @@
 package util
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -53,4 +54,11 @@ func FprintStruct(w io.Writer, s interface{}) {
 
 		fmt.Fprintf(w, "%-20s: %v\n", field.Name, val)
 	}
+}
+
+// FprintJSON prints the given interface as a pretty-printed JSON string.
+func FprintJSON(w io.Writer, s interface{}) error {
+	encoder := json.NewEncoder(w)
+	encoder.SetIndent("", "  ")
+	return encoder.Encode(s)
 }
