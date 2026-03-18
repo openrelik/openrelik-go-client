@@ -55,6 +55,7 @@ type File struct {
 	StorageKey      *string    `json:"storage_key"`
 	UserID          int        `json:"user_id"`
 	User            User       `json:"user"`
+	Folder          Folder     `json:"folder"`
 }
 
 // Info retrieves the metadata for a single file by ID.

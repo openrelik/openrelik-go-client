@@ -58,10 +58,11 @@ type Client struct {
 	maxResponseSize int64
 
 	// Services used for communicating with different parts of the OpenRelik API.
-	users   *UsersService
-	folders *FoldersService
-	files   *FilesService
-	workers *WorkersService
+	users     *UsersService
+	folders   *FoldersService
+	files     *FilesService
+	workflows *WorkflowsService
+	workers   *WorkersService
 }
 
 // Users returns the service for communicating with user-related methods of the OpenRelik API.
@@ -77,6 +78,11 @@ func (c *Client) Folders() *FoldersService {
 // Files returns the service for communicating with file-related methods of the OpenRelik API.
 func (c *Client) Files() *FilesService {
 	return c.files
+}
+
+// Workflows returns the service for communicating with workflow-related methods of the OpenRelik API.
+func (c *Client) Workflows() *WorkflowsService {
+	return c.workflows
 }
 
 // Workers returns the service for communicating with worker-related methods of the OpenRelik API.
@@ -191,6 +197,7 @@ func NewClient(apiServerURL, apiKey string, opts ...Option) (*Client, error) {
 	c.users = &UsersService{client: c}
 	c.folders = &FoldersService{client: c}
 	c.files = &FilesService{client: c}
+	c.workflows = &WorkflowsService{client: c}
 	c.workers = &WorkersService{client: c}
 
 	return c, nil
@@ -299,14 +306,20 @@ func (e *Error) Error() string {
 		msg = fmt.Sprintf(": %s", e.Message)
 	}
 
+	var cause string
+	if e.Cause != nil {
+		cause = fmt.Sprintf(" (cause: %v)", e.Cause)
+	}
+
 	if e.Response != nil && e.Response.Request != nil {
-		return fmt.Sprintf("openrelik: %s %s: %s%s",
+		return fmt.Sprintf("openrelik: %s %s: %s%s%s",
 			e.Response.Request.Method,
 			e.Response.Request.URL,
 			e.Response.Status,
-			msg)
+			msg,
+			cause)
 	}
-	return fmt.Sprintf("openrelik: api error: %d%s", e.StatusCode, msg)
+	return fmt.Sprintf("openrelik: api error: %d%s%s", e.StatusCode, msg, cause)
 }
 
 func (e *Error) Unwrap() error {
