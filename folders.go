@@ -61,9 +61,9 @@ type rootFoldersResponse struct {
 	TotalCount int      `json:"total_count"`
 }
 
-// GetRootFolders retrieves a page of root folders.
+// ListRootFolders retrieves a page of root folders.
 // TODO: Support pagination parameters in a future update.
-func (s *FoldersService) GetRootFolders(ctx context.Context) ([]Folder, *http.Response, error) {
+func (s *FoldersService) ListRootFolders(ctx context.Context) ([]Folder, *http.Response, error) {
 	req, err := s.client.NewRequest(ctx, http.MethodGet, "/folders/all/", nil)
 	if err != nil {
 		return nil, nil, err
@@ -78,8 +78,8 @@ func (s *FoldersService) GetRootFolders(ctx context.Context) ([]Folder, *http.Re
 	return rootResp.Folders, resp, nil
 }
 
-// GetSubFolders retrieves subfolders for a given folder ID.
-func (s *FoldersService) GetSubFolders(ctx context.Context, folderID int) ([]Folder, *http.Response, error) {
+// ListSubFolders retrieves subfolders for a given folder ID.
+func (s *FoldersService) ListSubFolders(ctx context.Context, folderID int) ([]Folder, *http.Response, error) {
 	endpoint, err := url.JoinPath("folders", strconv.Itoa(folderID), "folders/")
 	if err != nil {
 		return nil, nil, err
@@ -99,8 +99,8 @@ func (s *FoldersService) GetSubFolders(ctx context.Context, folderID int) ([]Fol
 	return folders, resp, nil
 }
 
-// GetFiles retrieves files for a given folder ID.
-func (s *FoldersService) GetFiles(ctx context.Context, folderID int) ([]FolderFile, *http.Response, error) {
+// ListFiles retrieves files for a given folder ID.
+func (s *FoldersService) ListFiles(ctx context.Context, folderID int) ([]FolderFile, *http.Response, error) {
 	endpoint, err := url.JoinPath("folders", strconv.Itoa(folderID), "files/")
 	if err != nil {
 		return nil, nil, err

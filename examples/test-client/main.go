@@ -52,7 +52,7 @@ func exampleHighLevel(ctx context.Context, client *openrelik.Client) {
 	}
 
 	// Folder service example
-	folders, _, err := client.Folders().GetRootFolders(ctx)
+	folders, _, err := client.Folders().ListRootFolders(ctx)
 	if err != nil {
 		log.Printf("Folder Service Error: %v\n", err)
 	} else {
