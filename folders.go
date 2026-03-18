@@ -35,6 +35,8 @@ type Folder struct {
 	DeletedAt   *time.Time `json:"deleted_at"`
 	IsDeleted   bool       `json:"is_deleted"`
 	DisplayName string     `json:"display_name"`
+	Description *string    `json:"description"`
+	UUID        string     `json:"uuid"`
 	User        User       `json:"user"`
 	Workflows   []any      `json:"workflows"`
 }

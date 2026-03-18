@@ -180,6 +180,20 @@ defer outFile.Close()
 io.Copy(outFile, body)
 ```
 
+### Workers
+
+#### List Registered Workers
+```go
+workers, _, err := client.Workers().Registered(ctx)
+if err != nil {
+    log.Fatal(err)
+}
+
+for _, w := range workers {
+    fmt.Printf("Worker: %s (%s)\n", w.DisplayName, w.TaskName)
+}
+```
+
 ### Low-Level API
 
 For endpoints not yet covered by a typed service, you can use the low-level HTTP methods (`Get`, `Post`, `Put`, `Patch`, `Delete`). These methods handle authentication and automatic token refresh transparently.
