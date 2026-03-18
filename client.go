@@ -83,6 +83,7 @@ func (c *Client) Files() *FilesService {
 // Workflows returns the service for communicating with workflow-related methods of the OpenRelik API.
 func (c *Client) Workflows() *WorkflowsService {
 	return c.workflows
+}
 
 // Workers returns the service for communicating with worker-related methods of the OpenRelik API.
 func (c *Client) Workers() *WorkersService {
