@@ -147,7 +147,7 @@ func (s *WorkflowsService) Create(ctx context.Context, folderID int, fileIDs []i
 
 // Run executes a workflow on the server by its ID and provided workflow specification.
 func (s *WorkflowsService) Run(ctx context.Context, folderID, workflowID int, specJSON *string) (*Workflow, *http.Response, error) {
-	var spec json.RawMessage
+	spec := json.RawMessage("{}")
 	if specJSON != nil && *specJSON != "" {
 		spec = json.RawMessage(*specJSON)
 	}
@@ -198,9 +198,9 @@ func (s *WorkflowsService) Status(ctx context.Context, folderID, workflowID int)
 	return status, resp, nil
 }
 
-// Get retrieves a single workflow by folder ID and workflow ID.
-func (s *WorkflowsService) Get(ctx context.Context, folderID, workflowID int) (*Workflow, *http.Response, error) {
-	endpoint, err := url.JoinPath("folders", strconv.Itoa(folderID), "workflows", strconv.Itoa(workflowID))
+// Get retrieves a single workflow by workflow ID.
+func (s *WorkflowsService) Get(ctx context.Context, workflowID int) (*Workflow, *http.Response, error) {
+	endpoint, err := url.JoinPath("workflows", strconv.Itoa(workflowID))
 	if err != nil {
 		return nil, nil, err
 	}

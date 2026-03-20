@@ -296,11 +296,10 @@ func TestWorkflowsService_Get(t *testing.T) {
 	mux, server, client := setupWorkflowsTestServer(t)
 	defer server.Close()
 
-	folderID := 114
 	workflowID := 98
 
 	// Mock Workflows.Get
-	mux.HandleFunc(fmt.Sprintf("/api/v1/folders/%d/workflows/%d", folderID, workflowID), func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc(fmt.Sprintf("/api/v1/workflows/%d", workflowID), func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			t.Errorf("Expected method GET, got %s", r.Method)
 		}
@@ -309,12 +308,11 @@ func TestWorkflowsService_Get(t *testing.T) {
 			ID:          workflowID,
 			DisplayName: "Test Workflow",
 		}
-		workflow.Folder.ID = folderID
 		json.NewEncoder(w).Encode(workflow)
 	})
 
 	ctx := context.Background()
-	workflow, resp, err := client.Workflows().Get(ctx, folderID, workflowID)
+	workflow, resp, err := client.Workflows().Get(ctx, workflowID)
 
 	if err != nil {
 		t.Fatalf("Workflows.Get returned error: %v", err)
@@ -326,10 +324,6 @@ func TestWorkflowsService_Get(t *testing.T) {
 
 	if workflow.ID != workflowID {
 		t.Errorf("Expected workflow ID %d, got %d", workflowID, workflow.ID)
-	}
-
-	if workflow.Folder.ID != folderID {
-		t.Errorf("Expected folder ID %d, got %d", folderID, workflow.Folder.ID)
 	}
 }
 

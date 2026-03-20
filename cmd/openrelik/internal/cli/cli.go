@@ -24,6 +24,7 @@ func NewRootCmd() *cobra.Command {
 		Long:             `A command line tool to interact with the OpenRelik API`,
 		TraverseChildren: true,
 		SilenceErrors:    true,
+		SilenceUsage:     true,
 	}
 
 	cmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", "text", "Output format (text, json)")
@@ -34,6 +35,7 @@ func NewRootCmd() *cobra.Command {
 	cmd.AddCommand(newFoldersCmd())
 	cmd.AddCommand(newFilesCmd())
 	cmd.AddCommand(newWorkersCmd())
+	cmd.AddCommand(newWorkflowsCmd())
 
 	return cmd
 }
@@ -90,4 +92,3 @@ func Execute() {
 		os.Exit(1)
 	}
 }
-
