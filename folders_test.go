@@ -33,7 +33,7 @@ func setupFoldersTestServer(t *testing.T) (mux *http.ServeMux, server *httptest.
 	return
 }
 
-func TestFoldersService_GetRootFolders(t *testing.T) {
+func TestFoldersService_ListRootFolders(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("Success", func(t *testing.T) {
@@ -70,9 +70,9 @@ func TestFoldersService_GetRootFolders(t *testing.T) {
 			}`)
 		})
 
-		folders, resp, err := client.Folders().GetRootFolders(ctx)
+		folders, resp, err := client.Folders().ListRootFolders(ctx)
 		if err != nil {
-			t.Fatalf("GetRootFolders returned error: %v", err)
+			t.Fatalf("ListRootFolders returned error: %v", err)
 		}
 
 		if resp.StatusCode != http.StatusOK {
@@ -104,14 +104,14 @@ func TestFoldersService_GetRootFolders(t *testing.T) {
 			w.WriteHeader(http.StatusInternalServerError)
 		})
 
-		_, _, err := client.Folders().GetRootFolders(ctx)
+		_, _, err := client.Folders().ListRootFolders(ctx)
 		if err == nil {
 			t.Error("Expected error for 500 status code")
 		}
 	})
 }
 
-func TestFoldersService_GetSubFolders(t *testing.T) {
+func TestFoldersService_ListSubFolders(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("Success", func(t *testing.T) {
@@ -144,9 +144,9 @@ func TestFoldersService_GetSubFolders(t *testing.T) {
 			]`)
 		})
 
-		folders, resp, err := client.Folders().GetSubFolders(ctx, folderID)
+		folders, resp, err := client.Folders().ListSubFolders(ctx, folderID)
 		if err != nil {
-			t.Fatalf("GetSubFolders returned error: %v", err)
+			t.Fatalf("ListSubFolders returned error: %v", err)
 		}
 
 		if resp.StatusCode != http.StatusOK {
@@ -171,14 +171,14 @@ func TestFoldersService_GetSubFolders(t *testing.T) {
 			w.WriteHeader(http.StatusInternalServerError)
 		})
 
-		_, _, err := client.Folders().GetSubFolders(ctx, folderID)
+		_, _, err := client.Folders().ListSubFolders(ctx, folderID)
 		if err == nil {
 			t.Error("Expected error for 500 status code")
 		}
 	})
 }
 
-func TestFoldersService_GetFiles(t *testing.T) {
+func TestFoldersService_ListFiles(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("Success", func(t *testing.T) {
@@ -212,9 +212,9 @@ func TestFoldersService_GetFiles(t *testing.T) {
 			]`)
 		})
 
-		files, resp, err := client.Folders().GetFiles(ctx, folderID)
+		files, resp, err := client.Folders().ListFiles(ctx, folderID)
 		if err != nil {
-			t.Fatalf("GetFiles returned error: %v", err)
+			t.Fatalf("ListFiles returned error: %v", err)
 		}
 
 		if resp.StatusCode != http.StatusOK {
@@ -243,7 +243,7 @@ func TestFoldersService_GetFiles(t *testing.T) {
 			w.WriteHeader(http.StatusInternalServerError)
 		})
 
-		_, _, err := client.Folders().GetFiles(ctx, folderID)
+		_, _, err := client.Folders().ListFiles(ctx, folderID)
 		if err == nil {
 			t.Error("Expected error for 500 status code")
 		}
