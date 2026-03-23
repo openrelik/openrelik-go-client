@@ -15,6 +15,7 @@
 package cli
 
 import (
+	"github.com/openrelik/openrelik-go-client/cmd/cli/internal/config"
 	"github.com/spf13/cobra"
 )
 
@@ -29,7 +30,9 @@ func newWorkersCmd() *cobra.Command {
 }
 
 func newListWorkersCmd() *cobra.Command {
-	return &cobra.Command{
+	var refresh bool
+
+	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List registered workers",
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -43,7 +46,17 @@ func newListWorkersCmd() *cobra.Command {
 				return err
 			}
 
+			if refresh {
+				if err := config.SaveWorkersCache(workers); err != nil {
+					return err
+				}
+			}
+
 			return formatAndPrint(cmd, workers)
 		},
 	}
+
+	cmd.Flags().BoolVar(&refresh, "refresh", false, "Update the local workers cache")
+
+	return cmd
 }

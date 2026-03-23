@@ -5,14 +5,17 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/openrelik/openrelik-go-client"
 )
 
 const (
-	configDir      = ".openrelik"
-	settingsFile   = "settings.json"
-	authCredsFile  = "auth_creds.json"
-	dirPerm        = 0700
-	filePerm       = 0600
+	configDir        = ".openrelik"
+	settingsFile     = "settings.json"
+	authCredsFile    = "auth_creds.json"
+	workersCacheFile = "workers_cache.json"
+	dirPerm          = 0700
+	filePerm         = 0600
 )
 
 type Settings struct {
@@ -111,6 +114,34 @@ func SaveCredentials(c *Credentials) error {
 		return err
 	}
 	return saveAtomic(filepath.Join(dir, authCredsFile), data)
+}
+
+func LoadWorkersCache() ([]openrelik.Worker, error) {
+	dir, err := GetConfigDir()
+	if err != nil {
+		return nil, err
+	}
+	data, err := os.ReadFile(filepath.Join(dir, workersCacheFile))
+	if err != nil {
+		return nil, err
+	}
+	var w []openrelik.Worker
+	if err := json.Unmarshal(data, &w); err != nil {
+		return nil, err
+	}
+	return w, nil
+}
+
+func SaveWorkersCache(w []openrelik.Worker) error {
+	dir, err := EnsureConfigDir()
+	if err != nil {
+		return err
+	}
+	data, err := json.MarshalIndent(w, "", "  ")
+	if err != nil {
+		return err
+	}
+	return saveAtomic(filepath.Join(dir, workersCacheFile), data)
 }
 
 // saveAtomic writes data to a temporary file and then renames it to the target path

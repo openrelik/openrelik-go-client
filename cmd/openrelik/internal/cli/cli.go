@@ -36,6 +36,7 @@ func NewRootCmd() *cobra.Command {
 	cmd.AddCommand(newFilesCmd())
 	cmd.AddCommand(newWorkersCmd())
 	cmd.AddCommand(newWorkflowsCmd())
+	cmd.AddCommand(newRunCmd())
 
 	return cmd
 }

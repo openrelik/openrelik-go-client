@@ -9,7 +9,14 @@ import (
 	"reflect"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
 )
+
+// GenerateUUID generates a random UUID v4 (hex, no hyphens).
+func GenerateUUID() string {
+	return strings.ReplaceAll(uuid.New().String(), "-", "")
+}
 
 // PrintStruct nicely prints the fields of a struct to stdout.
 func PrintStruct(s interface{}) {
