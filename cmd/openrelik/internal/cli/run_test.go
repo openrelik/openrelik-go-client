@@ -101,3 +101,83 @@ func TestDynamicWorkerCommands(t *testing.T) {
 		t.Errorf("grep subcommand not found")
 	}
 }
+
+func TestSliceArgs(t *testing.T) {
+	tests := []struct {
+		name       string
+		workerName string
+		args       []string
+		want       [][]string
+		wantDelim  string
+		wantErr    bool
+	}{
+		{
+			name:       "Single worker, single arg",
+			workerName: "strings",
+			args:       []string{"./users.go"},
+			want:       [][]string{{"strings", "./users.go"}},
+			wantDelim:  "",
+			wantErr:    false,
+		},
+		{
+			name:       "Chained workers",
+			workerName: "strings",
+			args:       []string{"./users.go", "--then", "grep", "--regex", "foo"},
+			want:       [][]string{
+				{"strings", "./users.go"},
+				{"grep", "--regex", "foo"},
+			},
+			wantDelim: "--then",
+			wantErr:   false,
+		},
+		{
+			name:       "Parallel workers",
+			workerName: "strings",
+			args:       []string{"./users.go", "--and", "grep", "--regex", "foo"},
+			want:       [][]string{
+				{"strings", "./users.go"},
+				{"grep", "--regex", "foo"},
+			},
+			wantDelim: "--and",
+			wantErr:   false,
+		},
+		{
+			name:       "Mixed delimiters (error)",
+			workerName: "strings",
+			args:       []string{"./users.go", "--then", "grep", "--and", "worker3"},
+			want:       nil,
+			wantDelim:  "",
+			wantErr:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, delim, err := sliceArgs(tt.workerName, tt.args)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("sliceArgs() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !tt.wantErr {
+				if delim != tt.wantDelim {
+					t.Errorf("sliceArgs() delim = %v, want %v", delim, tt.wantDelim)
+				}
+				if len(got) != len(tt.want) {
+					t.Errorf("sliceArgs() len(got) = %v, want %v", len(got), len(tt.want))
+					return
+				}
+				for i := range got {
+					if len(got[i]) != len(tt.want[i]) {
+						t.Errorf("sliceArgs() segment %d len = %v, want %v", i, len(got[i]), len(tt.want[i]))
+						continue
+					}
+					for j := range got[i] {
+						if got[i][j] != tt.want[i][j] {
+							t.Errorf("sliceArgs() got[%d][%d] = %v, want %v", i, j, got[i][j], tt.want[i][j])
+						}
+					}
+				}
+			}
+		})
+	}
+}

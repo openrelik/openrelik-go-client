@@ -8,14 +8,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	workflowFolderID   int
-	workflowFileIDs    []int
-	workflowTemplateID int
-	workflowParams     string
-	workflowSpec       string
-)
-
 func newWorkflowsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "workflows",
@@ -30,17 +22,22 @@ func newWorkflowsCmd() *cobra.Command {
 }
 
 func newWorkflowsCreateCmd() *cobra.Command {
+	var folderID int
+	var fileIDs []int
+	var templateID int
+	var params string
+
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a new workflow",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if len(workflowFileIDs) == 0 {
+			if len(fileIDs) == 0 {
 				return fmt.Errorf("at least one file ID is required (use --file)")
 			}
 
-			var params map[string]any
-			if workflowParams != "" {
-				if err := json.Unmarshal([]byte(workflowParams), &params); err != nil {
+			var parsedParams map[string]any
+			if params != "" {
+				if err := json.Unmarshal([]byte(params), &parsedParams); err != nil {
 					return fmt.Errorf("invalid JSON for --params: %w", err)
 				}
 			}
@@ -52,10 +49,10 @@ func newWorkflowsCreateCmd() *cobra.Command {
 
 			var tID *int
 			if cmd.Flags().Changed("template") {
-				tID = &workflowTemplateID
+				tID = &templateID
 			}
 
-			workflow, _, err := client.Workflows().Create(cmd.Context(), workflowFolderID, workflowFileIDs, tID, params)
+			workflow, _, err := client.Workflows().Create(cmd.Context(), folderID, fileIDs, tID, parsedParams)
 			if err != nil {
 				return err
 			}
@@ -64,10 +61,10 @@ func newWorkflowsCreateCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().IntVarP(&workflowFolderID, "folder", "f", 0, "Folder ID (optional, resolved from first file if omitted)")
-	cmd.Flags().IntSliceVarP(&workflowFileIDs, "file", "i", nil, "File IDs to include (can be specified multiple times)")
-	cmd.Flags().IntVarP(&workflowTemplateID, "template", "t", 0, "Template ID to use")
-	cmd.Flags().StringVarP(&workflowParams, "params", "p", "", "JSON string of parameters")
+	cmd.Flags().IntVarP(&folderID, "folder", "f", 0, "Folder ID (optional, resolved from first file if omitted)")
+	cmd.Flags().IntSliceVarP(&fileIDs, "file", "i", nil, "File IDs to include (can be specified multiple times)")
+	cmd.Flags().IntVarP(&templateID, "template", "t", 0, "Template ID to use")
+	cmd.Flags().StringVarP(&params, "params", "p", "", "JSON string of parameters")
 
 	return cmd
 }
@@ -131,6 +128,8 @@ func newWorkflowsStatusCmd() *cobra.Command {
 }
 
 func newWorkflowsRunCmd() *cobra.Command {
+	var spec string
+
 	cmd := &cobra.Command{
 		Use:   "run [WORKFLOW_ID]",
 		Short: "Run a workflow",
@@ -152,14 +151,14 @@ func newWorkflowsRunCmd() *cobra.Command {
 				return err
 			}
 
-			var spec *string
-			if workflowSpec != "" {
-				spec = &workflowSpec
+			var specPtr *string
+			if spec != "" {
+				specPtr = &spec
 			} else if workflow.SpecJSON != nil {
-				spec = workflow.SpecJSON
+				specPtr = workflow.SpecJSON
 			}
 
-			updatedWorkflow, _, err := client.Workflows().Run(cmd.Context(), workflow.Folder.ID, wID, spec)
+			updatedWorkflow, _, err := client.Workflows().Run(cmd.Context(), workflow.Folder.ID, wID, specPtr)
 			if err != nil {
 				return err
 			}
@@ -168,6 +167,6 @@ func newWorkflowsRunCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVarP(&workflowSpec, "spec", "s", "", "JSON string of workflow specification")
+	cmd.Flags().StringVarP(&spec, "spec", "s", "", "JSON string of workflow specification")
 	return cmd
 }
