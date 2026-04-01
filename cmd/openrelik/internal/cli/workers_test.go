@@ -102,7 +102,7 @@ func TestWorkersListCmdJSON(t *testing.T) {
 		os.Unsetenv("OPENRELIK_SERVER_URL")
 	}()
 
-	root.SetArgs([]string{"workers", "list", "--output", "json"})
+	root.SetArgs([]string{"--output", "json", "workers", "list"})
 
 	if err := root.Execute(); err != nil {
 		t.Fatalf("Execute() failed: %v", err)

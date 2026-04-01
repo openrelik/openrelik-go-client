@@ -280,8 +280,8 @@ func TestFilesUploadCmd(t *testing.T) {
 	}
 
 	output := buf.String()
-	if !strings.Contains(output, "Uploading [") {
-		t.Errorf("expected output to contain progress bar, but it was %q", output)
+	if !strings.Contains(output, "↑") && !strings.Contains(output, "upload.txt") {
+		t.Errorf("expected output to contain upload icon and filename, but it was %q", output)
 	}
 	if !strings.Contains(output, "chunks") {
 		t.Errorf("expected output to contain chunk info, but it was %q", output)

@@ -65,13 +65,14 @@ func LoadSettings() (*Settings, error) {
 	if err != nil {
 		return nil, err
 	}
-	data, err := os.ReadFile(filepath.Join(dir, settingsFile))
+	path := filepath.Join(dir, settingsFile)
+	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to read settings file %s: %w", path, err)
 	}
 	var s Settings
 	if err := json.Unmarshal(data, &s); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to unmarshal settings file %s: %w", path, err)
 	}
 	return &s, nil
 }
@@ -83,9 +84,10 @@ func SaveSettings(s *Settings) error {
 	}
 	data, err := json.MarshalIndent(s, "", "  ")
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to marshal settings: %w", err)
 	}
-	return saveAtomic(filepath.Join(dir, settingsFile), data)
+	path := filepath.Join(dir, settingsFile)
+	return saveAtomic(path, data)
 }
 
 func LoadCredentials() (*Credentials, error) {
@@ -93,13 +95,14 @@ func LoadCredentials() (*Credentials, error) {
 	if err != nil {
 		return nil, err
 	}
-	data, err := os.ReadFile(filepath.Join(dir, authCredsFile))
+	path := filepath.Join(dir, authCredsFile)
+	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to read credentials file %s: %w", path, err)
 	}
 	var c Credentials
 	if err := json.Unmarshal(data, &c); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to unmarshal credentials file %s: %w", path, err)
 	}
 	return &c, nil
 }
@@ -111,9 +114,10 @@ func SaveCredentials(c *Credentials) error {
 	}
 	data, err := json.MarshalIndent(c, "", "  ")
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to marshal credentials: %w", err)
 	}
-	return saveAtomic(filepath.Join(dir, authCredsFile), data)
+	path := filepath.Join(dir, authCredsFile)
+	return saveAtomic(path, data)
 }
 
 func LoadWorkersCache() ([]openrelik.Worker, error) {
@@ -121,13 +125,14 @@ func LoadWorkersCache() ([]openrelik.Worker, error) {
 	if err != nil {
 		return nil, err
 	}
-	data, err := os.ReadFile(filepath.Join(dir, workersCacheFile))
+	path := filepath.Join(dir, workersCacheFile)
+	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to read workers cache file %s: %w", path, err)
 	}
 	var w []openrelik.Worker
 	if err := json.Unmarshal(data, &w); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to unmarshal workers cache file %s: %w", path, err)
 	}
 	return w, nil
 }
@@ -139,9 +144,10 @@ func SaveWorkersCache(w []openrelik.Worker) error {
 	}
 	data, err := json.MarshalIndent(w, "", "  ")
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to marshal workers cache: %w", err)
 	}
-	return saveAtomic(filepath.Join(dir, workersCacheFile), data)
+	path := filepath.Join(dir, workersCacheFile)
+	return saveAtomic(path, data)
 }
 
 // saveAtomic writes data to a temporary file and then renames it to the target path
@@ -149,11 +155,11 @@ func SaveWorkersCache(w []openrelik.Worker) error {
 func saveAtomic(path string, data []byte) error {
 	tmpFile := path + ".tmp"
 	if err := os.WriteFile(tmpFile, data, filePerm); err != nil {
-		return err
+		return fmt.Errorf("failed to write temporary file %s: %w", tmpFile, err)
 	}
 	if err := os.Rename(tmpFile, path); err != nil {
 		_ = os.Remove(tmpFile) // Best effort cleanup
-		return err
+		return fmt.Errorf("failed to rename %s to %s: %w", tmpFile, path, err)
 	}
 	return nil
 }
