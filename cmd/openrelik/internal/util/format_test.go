@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"strings"
 	"testing"
+	"time"
 )
 
 type testStruct struct {
@@ -137,5 +138,55 @@ func TestFormatBytes(t *testing.T) {
 		if got != tt.expected {
 			t.Errorf("FormatBytes(%d) = %q, expected %q", tt.input, got, tt.expected)
 		}
+	}
+}
+
+func TestFormatTimeAgo(t *testing.T) {
+	now := time.Now()
+	tests := []struct {
+		input    time.Time
+		expected string
+	}{
+		{time.Time{}, ""},
+		{now.Add(-30 * time.Second), "just now"},
+		{now.Add(-2 * time.Minute), "about 2 minutes ago"},
+		{now.Add(-2 * time.Hour), "about 2 hours ago"},
+		{now.Add(-2 * 24 * time.Hour), "about 2 days ago"},
+		{now.Add(-45 * 24 * time.Hour), "about 1 month ago"},
+		{now.Add(-400 * 24 * time.Hour), "about 1 year ago"},
+	}
+
+	for _, tt := range tests {
+		got := FormatTimeAgo(tt.input)
+		if got != tt.expected {
+			t.Errorf("FormatTimeAgo(%v) = %q, expected %q", tt.input, got, tt.expected)
+		}
+	}
+}
+
+func TestFprintTable(t *testing.T) {
+	type item struct {
+		ID          int
+		DisplayName string
+		StatusShort string
+	}
+
+	items := []item{
+		{ID: 1, DisplayName: "Item 1", StatusShort: "OK"},
+		{ID: 2, DisplayName: "Item 2", StatusShort: "FAIL"},
+	}
+
+	var buf bytes.Buffer
+	FprintTable(&buf, items)
+	output := buf.String()
+
+	if !strings.Contains(output, "ID") || !strings.Contains(output, "DISPLAY NAME") || !strings.Contains(output, "STATUS") {
+		t.Errorf("expected headers not found in output:\n%s", output)
+	}
+	if !strings.Contains(output, "1") || !strings.Contains(output, "Item 1") || !strings.Contains(output, "OK") {
+		t.Errorf("expected row 1 not found in output:\n%s", output)
+	}
+	if !strings.Contains(output, "2") || !strings.Contains(output, "Item 2") || !strings.Contains(output, "FAIL") {
+		t.Errorf("expected row 2 not found in output:\n%s", output)
 	}
 }
