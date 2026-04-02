@@ -27,8 +27,8 @@ import (
 )
 
 // ResolveInputs takes a slice of strings that can be either file IDs (integers)
-// or local file paths. It uploads local files to the "CLI Uploads" folder.
-func ResolveInputs(ctx context.Context, client *openrelik.Client, args []string, showProgress bool) ([]int, int64, error) {
+// or local file paths. It uploads local files to an OpenRelik folder.
+func ResolveInputs(ctx context.Context, client *openrelik.Client, args []string, showProgress bool, folderID int, folderName string) ([]int, int64, error) {
 	var fileIDs []int
 	var filesToUpload []string
 	var totalUploaded int64
@@ -49,12 +49,23 @@ func ResolveInputs(ctx context.Context, client *openrelik.Client, args []string,
 	}
 
 	if len(filesToUpload) > 0 {
-		// Create or find "CLI Uploads" folder
-		// TODO: The folder should be per user and a flag should allow overriding the folder name
-		// or specifying an existing folder ID.
-		folder, err := GetOrCreateFolder(ctx, client, "CLI Uploads")
-		if err != nil {
-			return nil, 0, err
+		var folder *openrelik.Folder
+		var err error
+
+		if folderID > 0 {
+			folder = &openrelik.Folder{ID: folderID}
+		} else {
+			if folderName == "" {
+				user, _, err := client.Users().GetMe(ctx)
+				if err != nil {
+					return nil, 0, fmt.Errorf("failed to get current user: %w", err)
+				}
+				folderName = fmt.Sprintf("CLI Uploads (%s)", user.Username)
+			}
+			folder, err = GetOrCreateFolder(ctx, client, folderName)
+			if err != nil {
+				return nil, 0, err
+			}
 		}
 
 		for _, path := range filesToUpload {

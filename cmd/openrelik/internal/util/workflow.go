@@ -319,9 +319,11 @@ type WorkflowMonitorMeta struct {
 	UUIDToShort    map[string]string
 
 	// Resolved global flags (may be overridden in segments)
-	DownloadPolicy string
-	OutputDir      string
-	TaskFolders    bool
+	DownloadPolicy   string
+	OutputDir        string
+	TaskFolders      bool
+	UploadFolderID   int
+	UploadFolderName string
 }
 
 // BuildWorkflowSpec constructs a workflow specification from command segments.
@@ -352,6 +354,8 @@ func BuildWorkflowSpec(runCmd *cobra.Command, segments [][]string, delimiter str
 		}
 		meta.OutputDir, _ = runCmd.Flags().GetString("output-dir")
 		meta.TaskFolders, _ = runCmd.Flags().GetBool("task-folders")
+		meta.UploadFolderID, _ = runCmd.Flags().GetInt("upload-folder-id")
+		meta.UploadFolderName, _ = runCmd.Flags().GetString("upload-folder-name")
 	}
 
 	for _, segment := range segments {
@@ -395,6 +399,12 @@ func BuildWorkflowSpec(runCmd *cobra.Command, segments [][]string, delimiter str
 		}
 		if taskFolders, _ := tempCmd.Flags().GetBool("task-folders"); taskFolders {
 			meta.TaskFolders = true
+		}
+		if tempCmd.Flags().Changed("upload-folder-id") {
+			meta.UploadFolderID, _ = tempCmd.Flags().GetInt("upload-folder-id")
+		}
+		if tempCmd.Flags().Changed("upload-folder-name") {
+			meta.UploadFolderName, _ = tempCmd.Flags().GetString("upload-folder-name")
 		}
 
 		positionalArgs = append(positionalArgs, tempCmd.Flags().Args()...)

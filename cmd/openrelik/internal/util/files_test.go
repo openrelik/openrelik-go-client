@@ -27,13 +27,6 @@ import (
 )
 
 func TestResolveInputs(t *testing.T) {
-	mux := http.NewServeMux()
-	server := httptest.NewServer(mux)
-	defer server.Close()
-
-	client, _ := openrelik.NewClient(server.URL, "test-key")
-	ctx := context.Background()
-
 	// Temp file for local upload test
 	tmpDir, err := os.MkdirTemp("", "openrelik-test")
 	if err != nil {
@@ -47,7 +40,13 @@ func TestResolveInputs(t *testing.T) {
 	}
 
 	t.Run("File IDs only", func(t *testing.T) {
-		ids, total, err := ResolveInputs(ctx, client, []string{"123", "456"}, false)
+		mux := http.NewServeMux()
+		server := httptest.NewServer(mux)
+		defer server.Close()
+		client, _ := openrelik.NewClient(server.URL, "test-key")
+		ctx := context.Background()
+
+		ids, total, err := ResolveInputs(ctx, client, []string{"123", "456"}, false, 0, "")
 		if err != nil {
 			t.Fatalf("ResolveInputs failed: %v", err)
 		}
@@ -59,10 +58,42 @@ func TestResolveInputs(t *testing.T) {
 		}
 	})
 
-	t.Run("Local file and ID", func(t *testing.T) {
+	t.Run("Local file with explicit folder ID", func(t *testing.T) {
+		mux := http.NewServeMux()
+		server := httptest.NewServer(mux)
+		defer server.Close()
+		client, _ := openrelik.NewClient(server.URL, "test-key")
+		ctx := context.Background()
+
+		mux.HandleFunc("/api/v1/files/upload", func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodPost {
+				w.Header().Set("Content-Type", "application/json")
+				fmt.Fprint(w, `{"id": 789, "display_name": "test.txt"}`)
+			}
+		})
+
+		ids, total, err := ResolveInputs(ctx, client, []string{tmpFile}, false, 123, "")
+		if err != nil {
+			t.Fatalf("ResolveInputs failed: %v", err)
+		}
+		if len(ids) != 1 || ids[0] != 789 {
+			t.Errorf("Unexpected IDs: %v", ids)
+		}
+		if total != 11 {
+			t.Errorf("Expected total 11, got %d", total)
+		}
+	})
+
+	t.Run("Local file with explicit folder name", func(t *testing.T) {
+		mux := http.NewServeMux()
+		server := httptest.NewServer(mux)
+		defer server.Close()
+		client, _ := openrelik.NewClient(server.URL, "test-key")
+		ctx := context.Background()
+
 		mux.HandleFunc("/api/v1/folders/all/", func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprint(w, `{"folders": [{"id": 1, "display_name": "CLI Uploads"}]}`)
+			fmt.Fprint(w, `{"folders": [{"id": 2, "display_name": "Custom Folder"}]}`)
 		})
 		mux.HandleFunc("/api/v1/files/upload", func(w http.ResponseWriter, r *http.Request) {
 			if r.Method == http.MethodPost {
@@ -71,20 +102,60 @@ func TestResolveInputs(t *testing.T) {
 			}
 		})
 
-		ids, total, err := ResolveInputs(ctx, client, []string{"123", tmpFile}, false)
+		ids, total, err := ResolveInputs(ctx, client, []string{tmpFile}, false, 0, "Custom Folder")
 		if err != nil {
 			t.Fatalf("ResolveInputs failed: %v", err)
 		}
-		if len(ids) != 2 || ids[0] != 123 || ids[1] != 789 {
+		if len(ids) != 1 || ids[0] != 789 {
 			t.Errorf("Unexpected IDs: %v", ids)
 		}
-		if total != 11 { // "hello world" is 11 bytes
+		if total != 11 {
+			t.Errorf("Expected total 11, got %d", total)
+		}
+	})
+
+	t.Run("Local file with per-user default folder", func(t *testing.T) {
+		mux := http.NewServeMux()
+		server := httptest.NewServer(mux)
+		defer server.Close()
+		client, _ := openrelik.NewClient(server.URL, "test-key")
+		ctx := context.Background()
+
+		mux.HandleFunc("/api/v1/users/me/", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			fmt.Fprint(w, `{"username": "testuser"}`)
+		})
+		mux.HandleFunc("/api/v1/folders/all/", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			fmt.Fprint(w, `{"folders": [{"id": 3, "display_name": "CLI Uploads (testuser)"}]}`)
+		})
+		mux.HandleFunc("/api/v1/files/upload", func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodPost {
+				w.Header().Set("Content-Type", "application/json")
+				fmt.Fprint(w, `{"id": 789, "display_name": "test.txt"}`)
+			}
+		})
+
+		ids, total, err := ResolveInputs(ctx, client, []string{tmpFile}, false, 0, "")
+		if err != nil {
+			t.Fatalf("ResolveInputs failed: %v", err)
+		}
+		if len(ids) != 1 || ids[0] != 789 {
+			t.Errorf("Unexpected IDs: %v", ids)
+		}
+		if total != 11 {
 			t.Errorf("Expected total 11, got %d", total)
 		}
 	})
 
 	t.Run("Invalid Input", func(t *testing.T) {
-		_, _, err := ResolveInputs(ctx, client, []string{"not-a-file-and-not-an-id"}, false)
+		mux := http.NewServeMux()
+		server := httptest.NewServer(mux)
+		defer server.Close()
+		client, _ := openrelik.NewClient(server.URL, "test-key")
+		ctx := context.Background()
+
+		_, _, err := ResolveInputs(ctx, client, []string{"not-a-file-and-not-an-id"}, false, 0, "")
 		if err == nil {
 			t.Fatal("Expected error for invalid input, got nil")
 		}

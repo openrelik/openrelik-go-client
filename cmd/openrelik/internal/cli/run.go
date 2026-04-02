@@ -47,6 +47,8 @@ openrelik run strings --and grep 123`,
 	runCmd.PersistentFlags().String("download", "final", "Download policy (final, all)")
 	runCmd.PersistentFlags().Bool("no-download", false, "Do not download any results")
 	runCmd.PersistentFlags().Bool("task-folders", false, "Organize downloads into task folders")
+	runCmd.PersistentFlags().Int("upload-folder-id", 0, "Folder ID to upload local files to")
+	runCmd.PersistentFlags().String("upload-folder-name", "", "Folder name to upload local files to (default: CLI Uploads (username))")
 	runCmd.PersistentFlags().String("then", "", "Chain workers (use as delimiter)")
 	runCmd.PersistentFlags().String("and", "", "Run workers in parallel (use as delimiter)")
 
@@ -159,7 +161,7 @@ func createWorkerCmd(worker openrelik.Worker, allWorkers []openrelik.Worker) *co
 				return err
 			}
 
-			fileIDs, totalUploaded, err := util.ResolveInputs(cmd.Context(), client, positionalArgs, showProgress)
+			fileIDs, totalUploaded, err := util.ResolveInputs(cmd.Context(), client, positionalArgs, showProgress, meta.UploadFolderID, meta.UploadFolderName)
 			if err != nil {
 				return err
 			}

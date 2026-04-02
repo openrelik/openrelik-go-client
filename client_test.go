@@ -479,6 +479,33 @@ func TestDo(t *testing.T) {
 		}
 	})
 
+	t.Run("Readable API Error (Stripped Query)", func(t *testing.T) {
+		mux.HandleFunc("/api/v1/query-error", func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprint(w, `{"detail": "invalid input"}`)
+		})
+
+		// Use a URL with query parameters
+		req, _ := client.NewRequest(ctx, http.MethodGet, "/query-error?long_param=very_long_value&other=123", nil)
+		_, err := client.Do(req, nil)
+
+		var apiErr *Error
+		if !errors.As(err, &apiErr) {
+			t.Fatalf("Expected *Error, got %T", err)
+		}
+
+		errStr := apiErr.Error()
+		if strings.Contains(errStr, "very_long_value") {
+			t.Errorf("Error message should NOT contain query parameters: %q", errStr)
+		}
+		if !strings.Contains(errStr, "/api/v1/query-error") {
+			t.Errorf("Error message should contain the path: %q", errStr)
+		}
+		if !strings.Contains(errStr, "invalid input") {
+			t.Errorf("Error message should contain API error message: %q", errStr)
+		}
+	})
+
 	t.Run("Decode Error with Unwrap", func(t *testing.T) {
 		mux.HandleFunc("/api/v1/bad-json", func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
