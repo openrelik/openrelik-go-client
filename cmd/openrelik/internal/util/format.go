@@ -40,29 +40,116 @@ func FprintStruct(w io.Writer, s interface{}) {
 		return
 	}
 
+	FprintPropertyView(w, s)
+}
+
+// FprintPropertyView nicely prints a struct's fields vertically as a property list.
+// It skips nested structs and slices, and omits nil or empty values.
+func FprintPropertyView(w io.Writer, s interface{}) {
+	v := reflect.ValueOf(s)
+
+	if v.Kind() == reflect.Ptr {
+		if v.IsNil() {
+			fmt.Fprintf(w, "<nil>\n")
+			return
+		}
+		v = v.Elem()
+	}
+
+	if v.Kind() != reflect.Struct {
+		fmt.Fprintf(w, "%v\n", s)
+		return
+	}
+
 	t := v.Type()
+	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
+
 	for i := 0; i < v.NumField(); i++ {
 		field := t.Field(i)
 		value := v.Field(i)
 
-		// Handle unexported fields
 		if !field.IsExported() {
 			continue
 		}
 
-		var val interface{}
-		if value.Kind() == reflect.Ptr {
-			if value.IsNil() {
-				val = "<nil>"
-			} else {
-				val = value.Elem().Interface()
-			}
-		} else {
-			val = value.Interface()
+		// Handle skip logic: nil pointers, slices, and nested structs (except time.Time)
+		if value.Kind() == reflect.Ptr && value.IsNil() {
+			continue
+		}
+		if value.Kind() == reflect.Slice {
+			continue
+		}
+		if value.Kind() == reflect.Struct && field.Type != reflect.TypeOf(time.Time{}) {
+			continue
+		}
+		// Skip empty strings
+		if value.Kind() == reflect.String && value.String() == "" {
+			continue
 		}
 
-		fmt.Fprintf(w, "%-20s: %v\n", field.Name, val)
+		var label string
+		var val string
+
+		// Custom label mapping for a cleaner UI
+		switch field.Name {
+		case "ID":
+			label = "ID"
+		case "DisplayName":
+			label = "Display Name"
+		case "Filesize":
+			label = "Size"
+		case "CreatedAt":
+			label = "Created"
+		case "UpdatedAt":
+			label = "Updated"
+		case "MagicText":
+			label = "Magic Text"
+		case "MagicMime":
+			label = "Magic Mime"
+		case "HashMD5":
+			label = "MD5"
+		case "HashSHA1":
+			label = "SHA1"
+		case "HashSHA256":
+			label = "SHA256"
+		case "HashSSDeep":
+			label = "SSDeep"
+		case "DataType":
+			label = "Type"
+		case "UUID":
+			label = "UUID"
+		case "Filename":
+			label = "Filename"
+		case "Extension":
+			label = "Extension"
+		case "UserID":
+			label = "User ID"
+		case "IsDeleted":
+			label = "Deleted"
+		default:
+			label = field.Name
+		}
+
+		// Handle field value formatting
+		if field.Type == reflect.TypeOf(time.Time{}) {
+			tVal := value.Interface().(time.Time)
+			if tVal.IsZero() {
+				continue
+			}
+			val = tVal.Format(time.RFC3339) // ISO8601
+		} else if label == "Size" && value.Kind() == reflect.Int64 {
+			val = FormatBytes(value.Int())
+		} else if value.Kind() == reflect.Ptr {
+			val = fmt.Sprintf("%v", value.Elem().Interface())
+		} else {
+			val = fmt.Sprintf("%v", value.Interface())
+		}
+
+		if val != "" {
+			fmt.Fprintf(tw, "%s\t%s\n", label, val)
+		}
 	}
+	tw.Flush()
 }
 
 // FprintTable nicely prints a slice of structs as a table to the given writer.

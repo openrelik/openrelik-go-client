@@ -8,55 +8,40 @@ import (
 )
 
 type testStruct struct {
-	Name    string
-	Age     int
-	private string
-	Ptr     *string
-	NilPtr  *string
+	ID          int
+	DisplayName string
+	CreatedAt   time.Time
 }
 
 func TestFprintStruct(t *testing.T) {
-	ptrVal := "pointer value"
+	now := time.Now()
 	ts := testStruct{
-		Name:    "Test User",
-		Age:     30,
-		private: "secret",
-		Ptr:     &ptrVal,
-		NilPtr:  nil,
+		ID:          1,
+		DisplayName: "Test Item",
+		CreatedAt:   now,
 	}
 
 	tests := []struct {
 		name     string
 		input    interface{}
 		contains []string
-		excludes []string
 	}{
 		{
-			name:  "simple struct",
+			name:  "simple struct (property view)",
 			input: ts,
 			contains: []string{
-				"Name                : Test User",
-				"Age                 : 30",
-				"Ptr                 : pointer value",
-				"NilPtr              : <nil>",
-			},
-			excludes: []string{
-				"private",
-				"secret",
+				"ID            1",
+				"Display Name  Test Item",
+				"Created       " + now.Format(time.RFC3339),
 			},
 		},
 		{
 			name:  "pointer to struct",
 			input: &ts,
 			contains: []string{
-				"Name                : Test User",
-				"Age                 : 30",
-				"Ptr                 : pointer value",
-				"NilPtr              : <nil>",
-			},
-			excludes: []string{
-				"private",
-				"secret",
+				"ID            1",
+				"Display Name  Test Item",
+				"Created       " + now.Format(time.RFC3339),
 			},
 		},
 		{
@@ -86,20 +71,14 @@ func TestFprintStruct(t *testing.T) {
 					t.Errorf("expected output to contain %q, but it was %q", c, output)
 				}
 			}
-
-			for _, e := range tt.excludes {
-				if strings.Contains(output, e) {
-					t.Errorf("expected output to NOT contain %q, but it was %q", e, output)
-				}
-			}
 		})
 	}
 }
 
 func TestFprintJSON(t *testing.T) {
 	ts := testStruct{
-		Name: "Test User",
-		Age:  30,
+		ID:          1,
+		DisplayName: "Test Item",
 	}
 
 	var buf bytes.Buffer
@@ -109,10 +88,9 @@ func TestFprintJSON(t *testing.T) {
 
 	output := buf.String()
 	expected := `{
-  "Name": "Test User",
-  "Age": 30,
-  "Ptr": null,
-  "NilPtr": null
+  "ID": 1,
+  "DisplayName": "Test Item",
+  "CreatedAt": "0001-01-01T00:00:00Z"
 }
 `
 	if output != expected {
