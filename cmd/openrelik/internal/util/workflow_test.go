@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/openrelik/openrelik-go-client"
+	"github.com/spf13/cobra"
 )
 
 func TestIsTerminalTaskStatus(t *testing.T) {
@@ -163,4 +164,98 @@ func TestWorkflowMonitor_PrintSummary(t *testing.T) {
 	
 	m.showProgress = false
 	m.PrintSummary(time.Now().Add(-10*time.Second), 1024, 2048)
+}
+
+func TestBuildWorkflowSpec_Flags(t *testing.T) {
+	allWorkers := []openrelik.Worker{
+		{
+			TaskName:    "worker1",
+			DisplayName: "Worker 1",
+			TaskConfig: []openrelik.TaskConfig{
+				{Name: "param1", Type: "string"},
+			},
+		},
+	}
+
+	createWorkerCmd := func(worker openrelik.Worker, _ []openrelik.Worker) *cobra.Command {
+		cmd := &cobra.Command{
+			Use: worker.TaskName,
+		}
+		for _, cfg := range worker.TaskConfig {
+			cmd.Flags().String(cfg.Name, "", "")
+		}
+		cmd.Flags().Bool("download-result", false, "")
+		cmd.Flags().Bool("no-download-result", false, "")
+		return cmd
+	}
+
+	runCmd := &cobra.Command{Use: "run"}
+	runCmd.PersistentFlags().StringP("output-dir", "o", ".", "")
+	runCmd.PersistentFlags().String("download", "final", "")
+	runCmd.PersistentFlags().Bool("no-download", false, "")
+	runCmd.PersistentFlags().Bool("task-folders", false, "")
+
+	t.Run("LongFlags", func(t *testing.T) {
+		segments := [][]string{
+			{"worker1", "--param1", "val1", "--output-dir", "/tmp/out", "--download", "all", "--task-folders"},
+		}
+
+		spec, _, _, meta, err := BuildWorkflowSpec(runCmd, segments, "--then", allWorkers, createWorkerCmd)
+		if err != nil {
+			t.Fatalf("BuildWorkflowSpec failed: %v", err)
+		}
+
+		if meta.OutputDir != "/tmp/out" {
+			t.Errorf("Expected OutputDir /tmp/out, got %s", meta.OutputDir)
+		}
+		if meta.DownloadPolicy != "all" {
+			t.Errorf("Expected DownloadPolicy all, got %s", meta.DownloadPolicy)
+		}
+		if !meta.TaskFolders {
+			t.Errorf("Expected TaskFolders true, got false")
+		}
+
+		if len(spec.Workflow.Tasks) != 1 {
+			t.Fatalf("Expected 1 task, got %d", len(spec.Workflow.Tasks))
+		}
+		task := spec.Workflow.Tasks[0]
+		foundParam := false
+		for _, cfg := range task.TaskConfig {
+			if cfg.Name == "param1" {
+				if cfg.Value != "val1" {
+					t.Errorf("Expected param1 val1, got %v", cfg.Value)
+				}
+				foundParam = true
+			}
+		}
+		if !foundParam {
+			t.Errorf("param1 not found in task config")
+		}
+	})
+
+	t.Run("NoDownload", func(t *testing.T) {
+		segments := [][]string{
+			{"worker1", "--no-download"},
+		}
+		_, _, _, meta, err := BuildWorkflowSpec(runCmd, segments, "--then", allWorkers, createWorkerCmd)
+		if err != nil {
+			t.Fatalf("BuildWorkflowSpec failed: %v", err)
+		}
+		if meta.DownloadPolicy != "none" {
+			t.Errorf("Expected DownloadPolicy none, got %s", meta.DownloadPolicy)
+		}
+	})
+
+	t.Run("ShorthandOutputDir", func(t *testing.T) {
+		segments := [][]string{
+			{"worker1", "-o/tmp/shorthand"},
+		}
+		_, _, _, meta, err := BuildWorkflowSpec(runCmd, segments, "--then", allWorkers, createWorkerCmd)
+		if err != nil {
+			t.Fatalf("BuildWorkflowSpec failed: %v", err)
+		}
+		if meta.OutputDir != "/tmp/shorthand" {
+			t.Errorf("Expected OutputDir /tmp/shorthand, got %s", meta.OutputDir)
+		}
+	})
 }

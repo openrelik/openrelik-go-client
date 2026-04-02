@@ -8,6 +8,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"golang.org/x/term"
 )
 
 const (
@@ -296,11 +298,7 @@ func Confirm(w io.Writer, r io.Reader, message string) (bool, error) {
 // IsInteractiveTTY returns true when stderr is connected to a real terminal.
 // Progress output goes to stderr, so that is the relevant fd to check.
 func IsInteractiveTTY() bool {
-	info, err := os.Stderr.Stat()
-	if err != nil {
-		return false
-	}
-	return (info.Mode() & os.ModeCharDevice) != 0
+	return term.IsTerminal(int(os.Stderr.Fd()))
 }
 
 // Spinner handles a simple Unicode terminal spinner.

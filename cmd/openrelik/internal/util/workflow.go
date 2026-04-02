@@ -384,24 +384,17 @@ func BuildWorkflowSpec(runCmd *cobra.Command, segments [][]string, delimiter str
 		}
 
 		// Collect global overrides from this segment.
-		// We manually check the segment args because tempCmd.Flags().Changed()
-		// can be unreliable for persistent flags added via AddFlagSet.
-		for i, arg := range segment[1:] {
-			if arg == "--download" && i+1 < len(segment[1:]) {
-				meta.DownloadPolicy = segment[1:][i+1]
-			} else if strings.HasPrefix(arg, "--download=") {
-				meta.DownloadPolicy = strings.TrimPrefix(arg, "--download=")
-			} else if arg == "--no-download" {
-				meta.DownloadPolicy = "none"
-			} else if arg == "-o" && i+1 < len(segment[1:]) {
-				meta.OutputDir = segment[1:][i+1]
-			} else if (arg == "--output-dir" || arg == "-output-dir") && i+1 < len(segment[1:]) {
-				meta.OutputDir = segment[1:][i+1]
-			} else if strings.HasPrefix(arg, "--output-dir=") {
-				meta.OutputDir = strings.TrimPrefix(arg, "--output-dir=")
-			} else if arg == "--task-folders" {
-				meta.TaskFolders = true
-			}
+		if tempCmd.Flags().Changed("download") {
+			meta.DownloadPolicy, _ = tempCmd.Flags().GetString("download")
+		}
+		if noDownload, _ := tempCmd.Flags().GetBool("no-download"); noDownload {
+			meta.DownloadPolicy = "none"
+		}
+		if tempCmd.Flags().Changed("output-dir") {
+			meta.OutputDir, _ = tempCmd.Flags().GetString("output-dir")
+		}
+		if taskFolders, _ := tempCmd.Flags().GetBool("task-folders"); taskFolders {
+			meta.TaskFolders = true
 		}
 
 		positionalArgs = append(positionalArgs, tempCmd.Flags().Args()...)
