@@ -57,7 +57,7 @@ openrelik run strings --and grep 123`,
 	workers, err := config.LoadWorkersCache()
 	if err != nil {
 		// If cache load fails, we don't add dynamic subcommands.
-		// User can run 'openrelik workers list --refresh' to populate cache.
+		// User can run 'openrelik worker list --refresh' to populate cache.
 		return runCmd
 	}
 

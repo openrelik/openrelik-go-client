@@ -33,11 +33,11 @@ func NewRootCmd() *cobra.Command {
 	cmd.Flags().BoolVarP(&quiet, "quiet", "q", false, "Suppress all output")
 
 	cmd.AddCommand(newAuthCmd())
-	cmd.AddCommand(newUsersCmd())
-	cmd.AddCommand(newFoldersCmd())
-	cmd.AddCommand(newFilesCmd())
-	cmd.AddCommand(newWorkersCmd())
-	cmd.AddCommand(newWorkflowsCmd())
+	cmd.AddCommand(newUserCmd())
+	cmd.AddCommand(newFolderCmd())
+	cmd.AddCommand(newFileCmd())
+	cmd.AddCommand(newWorkerCmd())
+	cmd.AddCommand(newWorkflowCmd())
 	cmd.AddCommand(newRunCmd())
 
 	return cmd

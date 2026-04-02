@@ -10,7 +10,7 @@ import (
 	"testing"
 )
 
-func TestFoldersListCmd(t *testing.T) {
+func TestFolderListCmd(t *testing.T) {
 	// Mock API server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/api/v1/folders/all/" {
@@ -41,7 +41,7 @@ func TestFoldersListCmd(t *testing.T) {
 	}{
 		{
 			name: "list root folders",
-			args: []string{"folders", "list"},
+			args: []string{"folder", "list"},
 			expectedOutput: []string{
 				"ID                  : 1",
 				"DisplayName         : Root 1",
@@ -51,7 +51,7 @@ func TestFoldersListCmd(t *testing.T) {
 		},
 		{
 			name: "list subfolders",
-			args: []string{"folders", "list", "1"},
+			args: []string{"folder", "list", "1"},
 			expectedOutput: []string{
 				"ID                  : 3",
 				"DisplayName         : Sub 1",
@@ -81,7 +81,7 @@ func TestFoldersListCmd(t *testing.T) {
 	}
 }
 
-func TestFoldersCreateCmd(t *testing.T) {
+func TestFolderCreateCmd(t *testing.T) {
 	// Mock API server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost && r.URL.Path == "/api/v1/folders/" {
@@ -112,7 +112,7 @@ func TestFoldersCreateCmd(t *testing.T) {
 	}{
 		{
 			name: "create root folder",
-			args: []string{"folders", "create", "--name", "New Root"},
+			args: []string{"folder", "create", "--name", "New Root"},
 			expectedOutput: []string{
 				"ID                  : 100",
 				"DisplayName         : New Root",
@@ -120,7 +120,7 @@ func TestFoldersCreateCmd(t *testing.T) {
 		},
 		{
 			name: "create subfolder",
-			args: []string{"folders", "create", "--name", "New Sub", "--parent", "1"},
+			args: []string{"folder", "create", "--name", "New Sub", "--parent", "1"},
 			expectedOutput: []string{
 				"ID                  : 200",
 				"DisplayName         : New Sub",

@@ -4,9 +4,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newUsersCmd() *cobra.Command {
+func newUserCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "users",
+		Use:   "user",
 		Short: "Manage users",
 	}
 

@@ -12,7 +12,7 @@ import (
 	"testing"
 )
 
-func TestWorkflowsCmd(t *testing.T) {
+func TestWorkflowCmd(t *testing.T) {
 	// Mock API server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -64,22 +64,22 @@ func TestWorkflowsCmd(t *testing.T) {
 	}{
 		{
 			name:     "info",
-			args:     []string{"workflows", "info", "123"},
+			args:     []string{"workflow", "info", "123"},
 			expected: "ID                  : 123",
 		},
 		{
 			name:     "status",
-			args:     []string{"workflows", "status", "123"},
+			args:     []string{"workflow", "status", "123"},
 			expected: "Status              : completed",
 		},
 		{
 			name:     "run",
-			args:     []string{"workflows", "run", "123"},
+			args:     []string{"workflow", "run", "123"},
 			expected: "DisplayName         : Running Workflow",
 		},
 		{
 			name:     "create",
-			args:     []string{"workflows", "create", "--file", "456"},
+			args:     []string{"workflow", "create", "--file", "456"},
 			expected: "ID                  : 124",
 		},
 	}
@@ -104,7 +104,7 @@ func TestWorkflowsCmd(t *testing.T) {
 	}
 }
 
-func TestWorkflowsRunSpec(t *testing.T) {
+func TestWorkflowRunSpec(t *testing.T) {
 	// Mock API server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -151,7 +151,7 @@ func TestWorkflowsRunSpec(t *testing.T) {
 	root := NewRootCmd()
 	buf := new(bytes.Buffer)
 	root.SetOut(buf)
-	root.SetArgs([]string{"workflows", "run", "123"})
+	root.SetArgs([]string{"workflow", "run", "123"})
 
 	if err := root.Execute(); err != nil {
 		t.Fatalf("Execute() failed: %v", err)

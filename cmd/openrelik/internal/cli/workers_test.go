@@ -24,7 +24,7 @@ import (
 	"testing"
 )
 
-func TestWorkersListCmd(t *testing.T) {
+func TestWorkerListCmd(t *testing.T) {
 	// Mock API server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/api/v1/taskqueue/tasks/registered" {
@@ -56,7 +56,7 @@ func TestWorkersListCmd(t *testing.T) {
 		os.Unsetenv("OPENRELIK_SERVER_URL")
 	}()
 
-	root.SetArgs([]string{"workers", "list"})
+	root.SetArgs([]string{"worker", "list"})
 
 	if err := root.Execute(); err != nil {
 		t.Fatalf("Execute() failed: %v", err)
@@ -77,7 +77,7 @@ func TestWorkersListCmd(t *testing.T) {
 	}
 }
 
-func TestWorkersListCmdJSON(t *testing.T) {
+func TestWorkerListCmdJSON(t *testing.T) {
 	// Mock API server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/api/v1/taskqueue/tasks/registered" {
@@ -102,7 +102,7 @@ func TestWorkersListCmdJSON(t *testing.T) {
 		os.Unsetenv("OPENRELIK_SERVER_URL")
 	}()
 
-	root.SetArgs([]string{"--format", "json", "workers", "list"})
+	root.SetArgs([]string{"--format", "json", "worker", "list"})
 
 	if err := root.Execute(); err != nil {
 		t.Fatalf("Execute() failed: %v", err)

@@ -16,9 +16,9 @@ var (
 	chunkSize int
 )
 
-func newFilesCmd() *cobra.Command {
+func newFileCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "files",
+		Use:   "file",
 		Short: "Manage files",
 	}
 

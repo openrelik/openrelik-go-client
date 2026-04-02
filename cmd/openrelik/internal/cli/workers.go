@@ -19,9 +19,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newWorkersCmd() *cobra.Command {
+func newWorkerCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "workers",
+		Use:   "worker",
 		Short: "Manage workers",
 	}
 

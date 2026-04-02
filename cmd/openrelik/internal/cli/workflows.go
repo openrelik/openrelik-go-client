@@ -8,20 +8,20 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newWorkflowsCmd() *cobra.Command {
+func newWorkflowCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "workflows",
+		Use:   "workflow",
 		Short: "Manage workflows",
 	}
 
-	cmd.AddCommand(newWorkflowsCreateCmd())
-	cmd.AddCommand(newWorkflowsInfoCmd())
-	cmd.AddCommand(newWorkflowsStatusCmd())
-	cmd.AddCommand(newWorkflowsRunCmd())
+	cmd.AddCommand(newWorkflowCreateCmd())
+	cmd.AddCommand(newWorkflowInfoCmd())
+	cmd.AddCommand(newWorkflowStatusCmd())
+	cmd.AddCommand(newWorkflowRunCmd())
 	return cmd
 }
 
-func newWorkflowsCreateCmd() *cobra.Command {
+func newWorkflowCreateCmd() *cobra.Command {
 	var folderID int
 	var fileIDs []int
 	var templateID int
@@ -69,7 +69,7 @@ func newWorkflowsCreateCmd() *cobra.Command {
 	return cmd
 }
 
-func newWorkflowsInfoCmd() *cobra.Command {
+func newWorkflowInfoCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "info [WORKFLOW_ID]",
 		Short: "Get workflow metadata",
@@ -95,7 +95,7 @@ func newWorkflowsInfoCmd() *cobra.Command {
 	}
 }
 
-func newWorkflowsStatusCmd() *cobra.Command {
+func newWorkflowStatusCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "status [WORKFLOW_ID]",
 		Short: "Get workflow status",
@@ -127,7 +127,7 @@ func newWorkflowsStatusCmd() *cobra.Command {
 	}
 }
 
-func newWorkflowsRunCmd() *cobra.Command {
+func newWorkflowRunCmd() *cobra.Command {
 	var spec string
 
 	cmd := &cobra.Command{
