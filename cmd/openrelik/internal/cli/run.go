@@ -43,9 +43,9 @@ openrelik run strings --and grep 123`,
 	}
 
 	// Global run flags
-	runCmd.PersistentFlags().StringP("directory", "d", ".", "Output directory for downloads")
-	runCmd.PersistentFlags().String("download", "none", "Download policy (final, all, none)")
-	runCmd.PersistentFlags().Lookup("download").NoOptDefVal = "final"
+	runCmd.PersistentFlags().StringP("output-dir", "o", ".", "Output directory for downloads")
+	runCmd.PersistentFlags().String("download", "final", "Download policy (final, all)")
+	runCmd.PersistentFlags().Bool("no-download", false, "Do not download any results")
 	runCmd.PersistentFlags().Bool("task-folders", false, "Organize downloads into task folders")
 	runCmd.PersistentFlags().String("then", "", "Chain workers (use as delimiter)")
 	runCmd.PersistentFlags().String("and", "", "Run workers in parallel (use as delimiter)")
@@ -116,11 +116,10 @@ func createWorkerCmd(worker openrelik.Worker, allWorkers []openrelik.Worker) *co
 				return tempCmd.Help()
 			}
 
-			// All run flags are persistent, so they are available via cmd.Flags()
-			downloadPolicy, _ := cmd.Flags().GetString("download")
-			outputDir, _ := cmd.Flags().GetString("directory")
+			outputDir, _ := cmd.Flags().GetString("output-dir")
 			taskFolders, _ := cmd.Flags().GetBool("task-folders")
 			dryRun, _ := cmd.Flags().GetBool("dry-run")
+			var downloadPolicy string
 
 			outputSpecified := outputFormat != "text"
 			showProgress := !quiet && !outputSpecified
@@ -129,6 +128,15 @@ func createWorkerCmd(worker openrelik.Worker, allWorkers []openrelik.Worker) *co
 			spec, positionalArgs, taskDownloadPrefs, meta, err := util.BuildWorkflowSpec(cmd, segments, delimiter, allWorkers, createWorkerCmd)
 			if err != nil {
 				return err
+			}
+
+			// Use resolved global flags from BuildWorkflowSpec
+			downloadPolicy = meta.DownloadPolicy
+			outputDir = meta.OutputDir
+			taskFolders = meta.TaskFolders
+
+			if downloadPolicy != "all" && downloadPolicy != "final" && downloadPolicy != "none" {
+				return fmt.Errorf("invalid download policy: %s (must be 'all', 'final', or 'none')", downloadPolicy)
 			}
 
 			if dryRun {
@@ -233,8 +241,8 @@ func createWorkerCmd(worker openrelik.Worker, allWorkers []openrelik.Worker) *co
 	}
 
 	// Every worker command also gets its own download override flags
-	cmd.Flags().Bool("download-task", false, "Download results for this task")
-	cmd.Flags().Bool("no-download-task", false, "Do not download results for this task")
+	cmd.Flags().Bool("download-result", false, "Download results for this task")
+	cmd.Flags().Bool("no-download-result", false, "Do not download results for this task")
 
 	return cmd
 }

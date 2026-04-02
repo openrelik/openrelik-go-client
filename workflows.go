@@ -74,6 +74,7 @@ type Task struct {
 	OutputFiles    []TaskOutputFile `json:"output_files"`
 	FileReports    []any            `json:"file_reports"`
 	TaskReport     any              `json:"task_report"`
+	Tasks          []Task           `json:"tasks"`
 }
 
 // TaskOutputFile represents a file produced by a task.

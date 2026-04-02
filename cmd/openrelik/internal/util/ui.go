@@ -209,7 +209,7 @@ func (pt *ProgressTracker) display() {
 		// Clean line when finished
 		finishSymbol := ColorGreen + "✔"
 		if isUpload {
-			finishSymbol = ColorGreen + "↑"
+			finishSymbol = ColorBlue + "↑"
 		} else if isDownload {
 			finishSymbol = ColorGreen + "↓"
 		}

@@ -29,7 +29,7 @@ func NewRootCmd() *cobra.Command {
 
 	cmd.CompletionOptions.DisableDefaultCmd = true
 
-	cmd.Flags().StringVarP(&outputFormat, "output", "o", "text", "Output format (text, json)")
+	cmd.Flags().StringVarP(&outputFormat, "format", "f", "text", "Output format (text, json)")
 	cmd.Flags().BoolVarP(&quiet, "quiet", "q", false, "Suppress all output")
 
 	cmd.AddCommand(newAuthCmd())

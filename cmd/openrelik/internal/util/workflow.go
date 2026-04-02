@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -90,13 +91,13 @@ func GetOrCreateFolder(ctx context.Context, client *openrelik.Client, folderName
 
 // WorkflowMonitor handles polling and UI for workflow status.
 type WorkflowMonitor struct {
-	client            *openrelik.Client
-	workflow          *openrelik.Workflow
-	taskShortNames    []string
-	taskUUIDs         []string
-	uuidToShort       map[string]string
-	interactive       bool
-	showProgress      bool
+	client         *openrelik.Client
+	workflow       *openrelik.Workflow
+	taskShortNames []string
+	taskUUIDs      []string
+	uuidToShort    map[string]string
+	interactive    bool
+	showProgress   bool
 
 	// Internal state
 	taskStarted       map[string]time.Time
@@ -135,6 +136,11 @@ func (m *WorkflowMonitor) monitorInteractive(ctx context.Context) (*openrelik.Wo
 	spinner.Start()
 	defer spinner.Stop()
 
+	// Initial print of task lines to avoid overwriting previous output
+	for _, shortName := range m.taskShortNames {
+		fmt.Fprintf(os.Stderr, "%s·%s %-14s %spending%s\033[K\n", ColorDim, ColorReset, shortName, ColorDim, ColorReset)
+	}
+
 	stopUI := make(chan struct{})
 	uiDone := make(chan struct{})
 
@@ -148,7 +154,7 @@ func (m *WorkflowMonitor) monitorInteractive(ctx context.Context) (*openrelik.Wo
 			case <-ticker.C:
 				m.mu.Lock()
 				s := spinner.Current()
-				fmt.Printf("\033[%dA", len(m.taskShortNames))
+				fmt.Fprintf(os.Stderr, "\033[%dA", len(m.taskShortNames))
 				for i, shortName := range m.taskShortNames {
 					uuid := m.taskUUIDs[i]
 					ts := m.taskStatusDisplay[uuid]
@@ -156,14 +162,14 @@ func (m *WorkflowMonitor) monitorInteractive(ctx context.Context) (*openrelik.Wo
 						ts = "PENDING"
 					}
 					if strings.EqualFold(ts, "FAILURE") {
-						fmt.Printf("  %s✖%s  %-14s %sfailed%s\033[K\n", ColorRed, ColorReset, shortName, ColorRed, ColorReset)
+						fmt.Fprintf(os.Stderr, "%s✖%s %-14s %sfailed%s\033[K\n", ColorRed, ColorReset, shortName, ColorRed, ColorReset)
 					} else if IsTerminalTaskStatus(ts) {
 						elapsed := m.taskEnded[uuid].Sub(m.taskStarted[uuid])
-						fmt.Printf("  %s✔%s  %-14s %s%s%.1fs%s\033[K\n", ColorGreen, ColorReset, shortName, ColorDim, "[", elapsed.Seconds(), "]"+ColorReset)
+						fmt.Fprintf(os.Stderr, "%s✔%s %-14s %s%s%.1fs%s\033[K\n", ColorGreen, ColorReset, shortName, ColorDim, "[", elapsed.Seconds(), "]"+ColorReset)
 					} else if strings.EqualFold(ts, "PENDING") {
-						fmt.Printf("  %s·%s  %-14s %spending%s\033[K\n", ColorDim, ColorReset, shortName, ColorDim, ColorReset)
+						fmt.Fprintf(os.Stderr, "%s·%s %-14s %spending%s\033[K\n", ColorDim, ColorReset, shortName, ColorDim, ColorReset)
 					} else {
-						fmt.Printf("  %s%s%s  %-14s %s%s%s\033[K\n", ColorCyan, s, ColorReset, shortName, ColorCyan, strings.ToLower(ts), ColorReset)
+						fmt.Fprintf(os.Stderr, "%s%s%s %-14s %s%s%s\033[K\n", ColorCyan, s, ColorReset, shortName, ColorCyan, strings.ToLower(ts), ColorReset)
 					}
 				}
 				m.mu.Unlock()
@@ -213,15 +219,15 @@ func (m *WorkflowMonitor) monitorInteractive(ctx context.Context) (*openrelik.Wo
 	<-uiDone
 
 	// Final render
-	fmt.Printf("\033[%dA", len(m.taskShortNames))
+	fmt.Fprintf(os.Stderr, "\033[%dA", len(m.taskShortNames))
 	for i, shortName := range m.taskShortNames {
 		uuid := m.taskUUIDs[i]
 		ts := m.taskStatusDisplay[uuid]
 		if strings.EqualFold(ts, "FAILURE") {
-			fmt.Printf("  %s✖%s  %-14s %sfailed%s\033[K\n", ColorRed, ColorReset, shortName, ColorRed, ColorReset)
+			fmt.Fprintf(os.Stderr, "%s✖%s %-14s %sfailed%s\033[K\n", ColorRed, ColorReset, shortName, ColorRed, ColorReset)
 		} else {
 			elapsed := m.taskEnded[uuid].Sub(m.taskStarted[uuid])
-			fmt.Printf("  %s✔%s  %-14s %s%s%.1fs%s\033[K\n", ColorGreen, ColorReset, shortName, ColorDim, "[", elapsed.Seconds(), "]"+ColorReset)
+			fmt.Fprintf(os.Stderr, "%s✔%s %-14s %s%s%.1fs%s\033[K\n", ColorGreen, ColorReset, shortName, ColorDim, "[", elapsed.Seconds(), "]"+ColorReset)
 		}
 	}
 
@@ -239,7 +245,7 @@ func (m *WorkflowMonitor) PrintSummary(startTime time.Time, totalUploaded, total
 	}
 	duration := time.Since(startTime).Round(time.Millisecond)
 	sep := fmt.Sprintf(" %s·%s ", ColorDim, ColorReset)
-	fmt.Printf("\nTasks: %d%sDuration: %s%sUploaded: %s%sDownloaded: %s\n",
+	fmt.Fprintf(os.Stderr, "\nTasks: %d%sDuration: %s%sUploaded: %s%sDownloaded: %s\n",
 		len(m.taskShortNames), sep,
 		duration, sep,
 		FormatBytes(totalUploaded), sep,
@@ -248,7 +254,7 @@ func (m *WorkflowMonitor) PrintSummary(startTime time.Time, totalUploaded, total
 
 func (m *WorkflowMonitor) monitorNonInteractive(ctx context.Context) (*openrelik.WorkflowStatus, error) {
 	if m.showProgress {
-		fmt.Println("Running workflow...")
+		fmt.Fprintln(os.Stderr, "Running workflow...")
 	}
 	prevTaskStatuses := make(map[string]string) // UUID → status
 	var lastStatus *openrelik.WorkflowStatus
@@ -286,9 +292,9 @@ func (m *WorkflowMonitor) monitorNonInteractive(ctx context.Context) (*openrelik
 			}
 			if m.showProgress {
 				if strings.EqualFold(ts, "FAILURE") {
-					fmt.Printf("✗ %-14s failed%s\n", shortName, elapsed)
+					fmt.Fprintf(os.Stderr, "✗ %-14s failed%s\n", shortName, elapsed)
 				} else {
-					fmt.Printf("✓ %-14s done%s\n", shortName, elapsed)
+					fmt.Fprintf(os.Stderr, "✓ %-14s done%s\n", shortName, elapsed)
 				}
 			}
 			prevTaskStatuses[task.UUID] = ts
@@ -311,6 +317,11 @@ type WorkflowMonitorMeta struct {
 	TaskShortNames []string
 	TaskUUIDs      []string
 	UUIDToShort    map[string]string
+
+	// Resolved global flags (may be overridden in segments)
+	DownloadPolicy string
+	OutputDir      string
+	TaskFolders    bool
 }
 
 // BuildWorkflowSpec constructs a workflow specification from command segments.
@@ -331,6 +342,16 @@ func BuildWorkflowSpec(runCmd *cobra.Command, segments [][]string, delimiter str
 		TaskShortNames: []string{},
 		TaskUUIDs:      []string{},
 		UUIDToShort:    make(map[string]string),
+	}
+
+	// Initialize with defaults from runCmd
+	if runCmd != nil {
+		meta.DownloadPolicy, _ = runCmd.Flags().GetString("download")
+		if noDownload, _ := runCmd.Flags().GetBool("no-download"); noDownload {
+			meta.DownloadPolicy = "none"
+		}
+		meta.OutputDir, _ = runCmd.Flags().GetString("output-dir")
+		meta.TaskFolders, _ = runCmd.Flags().GetBool("task-folders")
 	}
 
 	for _, segment := range segments {
@@ -357,10 +378,30 @@ func BuildWorkflowSpec(runCmd *cobra.Command, segments [][]string, delimiter str
 		tempCmd.RunE = func(c *cobra.Command, a []string) error { return nil }
 		tempCmd.SetOut(io.Discard)
 		tempCmd.SetErr(io.Discard)
-		tempCmd.FParseErrWhitelist.UnknownFlags = true
 
 		if err := tempCmd.Execute(); err != nil {
 			return WorkflowSpec{}, nil, nil, WorkflowMonitorMeta{}, fmt.Errorf("failed to parse flags for worker %s: %w", workerName, err)
+		}
+
+		// Collect global overrides from this segment.
+		// We manually check the segment args because tempCmd.Flags().Changed()
+		// can be unreliable for persistent flags added via AddFlagSet.
+		for i, arg := range segment[1:] {
+			if arg == "--download" && i+1 < len(segment[1:]) {
+				meta.DownloadPolicy = segment[1:][i+1]
+			} else if strings.HasPrefix(arg, "--download=") {
+				meta.DownloadPolicy = strings.TrimPrefix(arg, "--download=")
+			} else if arg == "--no-download" {
+				meta.DownloadPolicy = "none"
+			} else if arg == "-o" && i+1 < len(segment[1:]) {
+				meta.OutputDir = segment[1:][i+1]
+			} else if (arg == "--output-dir" || arg == "-output-dir") && i+1 < len(segment[1:]) {
+				meta.OutputDir = segment[1:][i+1]
+			} else if strings.HasPrefix(arg, "--output-dir=") {
+				meta.OutputDir = strings.TrimPrefix(arg, "--output-dir=")
+			} else if arg == "--task-folders" {
+				meta.TaskFolders = true
+			}
 		}
 
 		positionalArgs = append(positionalArgs, tempCmd.Flags().Args()...)
@@ -389,8 +430,8 @@ func BuildWorkflowSpec(runCmd *cobra.Command, segments [][]string, delimiter str
 		meta.TaskUUIDs = append(meta.TaskUUIDs, uuid)
 		meta.UUIDToShort[uuid] = segment[0]
 
-		download, _ := tempCmd.Flags().GetBool("download-task")
-		noDownload, _ := tempCmd.Flags().GetBool("no-download-task")
+		download, _ := tempCmd.Flags().GetBool("download-result")
+		noDownload, _ := tempCmd.Flags().GetBool("no-download-result")
 		if download {
 			taskDownloadPrefs[uuid] = true
 		} else if noDownload {
@@ -438,3 +479,16 @@ func FindWorker(name string, workers []openrelik.Worker) *openrelik.Worker {
 	}
 	return nil
 }
+
+// FlattenTasks recursively flattens a tree of tasks into a linear slice.
+func FlattenTasks(tasks []openrelik.Task) []openrelik.Task {
+	var flattened []openrelik.Task
+	for _, task := range tasks {
+		flattened = append(flattened, task)
+		if len(task.Tasks) > 0 {
+			flattened = append(flattened, FlattenTasks(task.Tasks)...)
+		}
+	}
+	return flattened
+}
+

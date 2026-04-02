@@ -50,6 +50,8 @@ func ResolveInputs(ctx context.Context, client *openrelik.Client, args []string,
 
 	if len(filesToUpload) > 0 {
 		// Create or find "CLI Uploads" folder
+		// TODO: The folder should be per user and a flag should allow overriding the folder name
+		// or specifying an existing folder ID.
 		folder, err := GetOrCreateFolder(ctx, client, "CLI Uploads")
 		if err != nil {
 			return nil, 0, err
@@ -104,7 +106,15 @@ func DownloadResults(ctx context.Context, client *openrelik.Client, workflowID i
 	var fullWorkflow *openrelik.Workflow
 	var totalDownloaded int64
 
-	if policy != "none" || outputFormat != "text" {
+	hasPositiveOverride := false
+	for _, v := range taskDownloadPrefs {
+		if v {
+			hasPositiveOverride = true
+			break
+		}
+	}
+
+	if policy != "none" || outputFormat != "text" || hasPositiveOverride {
 		// The status endpoint doesn't include output_files; fetch the full workflow.
 		var err error
 		fullWorkflow, _, err = client.Workflows().Get(ctx, workflowID)
@@ -113,12 +123,14 @@ func DownloadResults(ctx context.Context, client *openrelik.Client, workflowID i
 		}
 	}
 
-	if policy == "none" || fullWorkflow == nil {
+	if (policy == "none" && !hasPositiveOverride) || fullWorkflow == nil {
 		return 0, fullWorkflow, nil
 	}
 
 	tasksToDownload := []openrelik.Task{}
-	for i, task := range fullWorkflow.Tasks {
+	allTasks := FlattenTasks(fullWorkflow.Tasks)
+
+	for i, task := range allTasks {
 		shouldDownload := false
 
 		// Check per-task preference first
@@ -129,7 +141,7 @@ func DownloadResults(ctx context.Context, client *openrelik.Client, workflowID i
 			if policy == "all" {
 				shouldDownload = true
 			} else if policy == "final" {
-				shouldDownload = i == len(fullWorkflow.Tasks)-1
+				shouldDownload = i == len(allTasks)-1
 			}
 		}
 

@@ -84,7 +84,7 @@ func TestMeCmdJSON(t *testing.T) {
 	}()
 
 	// Set flags to request JSON output (server flag removed)
-	root.SetArgs([]string{"--output", "json", "users", "me"})
+	root.SetArgs([]string{"--format", "json", "users", "me"})
 
 	if err := root.Execute(); err != nil {
 		t.Fatalf("Execute() failed: %v", err)
