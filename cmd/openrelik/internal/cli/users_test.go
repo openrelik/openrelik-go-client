@@ -37,7 +37,7 @@ func TestMeCmd(t *testing.T) {
 	}()
 
 	// Set flags (server flag removed)
-	root.SetArgs([]string{"users", "me"})
+	root.SetArgs([]string{"user", "me"})
 
 	if err := root.Execute(); err != nil {
 		t.Fatalf("Execute() failed: %v", err)
@@ -84,7 +84,7 @@ func TestMeCmdJSON(t *testing.T) {
 	}()
 
 	// Set flags to request JSON output (server flag removed)
-	root.SetArgs([]string{"users", "me", "--output", "json"})
+	root.SetArgs([]string{"--format", "json", "user", "me"})
 
 	if err := root.Execute(); err != nil {
 		t.Fatalf("Execute() failed: %v", err)

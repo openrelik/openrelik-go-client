@@ -22,6 +22,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"sync"
 	"time"
 )
@@ -254,7 +255,12 @@ func (c *Client) Delete(ctx context.Context, endpoint string, v any) (*http.Resp
 
 // NewRequest handles JSON marshaling, context attachment, and header setup.
 func (c *Client) NewRequest(ctx context.Context, method, endpoint string, body any) (*http.Request, error) {
-	u := c.serverURL.JoinPath("api", c.apiVersion, endpoint)
+	// Split path and query if present to avoid escaping the '?' by JoinPath
+	path, query, found := strings.Cut(endpoint, "?")
+	u := c.serverURL.JoinPath("api", c.apiVersion, path)
+	if found {
+		u.RawQuery = query
+	}
 
 	var buf io.ReadSeeker
 	if body != nil {
@@ -312,9 +318,14 @@ func (e *Error) Error() string {
 	}
 
 	if e.Response != nil && e.Response.Request != nil {
+		// Strip query parameters and fragment for a cleaner error message
+		u := *e.Response.Request.URL
+		u.RawQuery = ""
+		u.Fragment = ""
+
 		return fmt.Sprintf("openrelik: %s %s: %s%s%s",
 			e.Response.Request.Method,
-			e.Response.Request.URL,
+			u.String(),
 			e.Response.Status,
 			msg,
 			cause)

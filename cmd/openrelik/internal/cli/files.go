@@ -16,9 +16,9 @@ var (
 	chunkSize int
 )
 
-func newFilesCmd() *cobra.Command {
+func newFileCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "files",
+		Use:   "file",
 		Short: "Manage files",
 	}
 
@@ -146,7 +146,11 @@ func newFileDownloadCmd() *cobra.Command {
 
 			var r io.Reader = body
 			if !quiet {
-				r = util.NewProgressReader(body, file.Filesize, cmd.OutOrStdout())
+				tracker := util.NewProgressTracker(cmd.OutOrStdout(), file.Filesize, "Download: "+file.DisplayName)
+				r = &util.ProgressReader{
+					Reader:  body,
+					Tracker: tracker,
+				}
 			}
 
 			_, err = io.Copy(out, r)
@@ -186,7 +190,7 @@ func newFileUploadCmd() *cobra.Command {
 
 			var tracker *util.ProgressTracker
 			if !quiet {
-				tracker = util.NewProgressTracker(cmd.OutOrStdout(), fileInfo.Size(), "Uploading")
+				tracker = util.NewProgressTracker(cmd.OutOrStdout(), fileInfo.Size(), "Upload: "+filepath.Base(filePath))
 				// Calculate total chunks for initial display
 				totalChunks := int(fileInfo.Size() / int64(chunkSize))
 				if fileInfo.Size()%int64(chunkSize) != 0 {

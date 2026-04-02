@@ -11,7 +11,7 @@ import (
 	"testing"
 )
 
-func TestFilesListCmd(t *testing.T) {
+func TestFileListCmd(t *testing.T) {
 	// Mock API server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/api/v1/folders/123/files/" {
@@ -38,7 +38,7 @@ func TestFilesListCmd(t *testing.T) {
 	}{
 		{
 			name: "list files in folder",
-			args: []string{"files", "list", "123"},
+			args: []string{"file", "list", "123"},
 			expectedOutput: []string{
 				"ID                  : 1",
 				"DisplayName         : file1.txt",
@@ -50,7 +50,7 @@ func TestFilesListCmd(t *testing.T) {
 		},
 		{
 			name:        "missing folder ID",
-			args:        []string{"files", "list"},
+			args:        []string{"file", "list"},
 			expectError: true,
 		},
 	}
@@ -80,7 +80,7 @@ func TestFilesListCmd(t *testing.T) {
 	}
 }
 
-func TestFilesDownloadCmd(t *testing.T) {
+func TestFileDownloadCmd(t *testing.T) {
 	// Mock API server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/api/v1/files/789" {
@@ -123,7 +123,7 @@ func TestFilesDownloadCmd(t *testing.T) {
 		root := NewRootCmd()
 		buf := new(bytes.Buffer)
 		root.SetOut(buf)
-		root.SetArgs([]string{"files", "download", "789"})
+		root.SetArgs([]string{"file", "download", "789"})
 
 		if err := root.Execute(); err != nil {
 			t.Fatalf("Execute() failed: %v", err)
@@ -145,7 +145,7 @@ func TestFilesDownloadCmd(t *testing.T) {
 		root := NewRootCmd()
 		buf := new(bytes.Buffer)
 		root.SetOut(buf)
-		root.SetArgs([]string{"files", "download", "789", tmpDir})
+		root.SetArgs([]string{"file", "download", "789", tmpDir})
 
 		if err := root.Execute(); err != nil {
 			t.Fatalf("Execute() failed: %v", err)
@@ -165,7 +165,7 @@ func TestFilesDownloadCmd(t *testing.T) {
 		root := NewRootCmd()
 		buf := new(bytes.Buffer)
 		root.SetOut(buf)
-		root.SetArgs([]string{"files", "download", "789", customPath})
+		root.SetArgs([]string{"file", "download", "789", customPath})
 
 		if err := root.Execute(); err != nil {
 			t.Fatalf("Execute() failed: %v", err)
@@ -182,7 +182,7 @@ func TestFilesDownloadCmd(t *testing.T) {
 		buf := new(bytes.Buffer)
 		root.SetOut(buf)
 		root.SetErr(buf)
-		root.SetArgs([]string{"files", "download", "789", "/non/existent/path/file.txt"})
+		root.SetArgs([]string{"file", "download", "789", "/non/existent/path/file.txt"})
 
 		err := root.Execute()
 		if err == nil {
@@ -204,7 +204,7 @@ func TestFilesDownloadCmd(t *testing.T) {
 		root.SetOut(buf)
 		// Mock "y" input
 		root.SetIn(strings.NewReader("y\n"))
-		root.SetArgs([]string{"files", "download", "789", tmpFile.Name()})
+		root.SetArgs([]string{"file", "download", "789", tmpFile.Name()})
 
 		if err := root.Execute(); err != nil {
 			t.Fatalf("Execute() failed: %v", err)
@@ -228,7 +228,7 @@ func TestFilesDownloadCmd(t *testing.T) {
 		root.SetErr(buf)
 		// Mock empty input (just newline)
 		root.SetIn(strings.NewReader("\n"))
-		root.SetArgs([]string{"files", "download", "789", tmpFile.Name()})
+		root.SetArgs([]string{"file", "download", "789", tmpFile.Name()})
 
 		err := root.Execute()
 		if err == nil {
@@ -245,7 +245,7 @@ func TestFilesDownloadCmd(t *testing.T) {
 	})
 }
 
-func TestFilesUploadCmd(t *testing.T) {
+func TestFileUploadCmd(t *testing.T) {
 	// Mock API server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost && r.URL.Path == "/api/v1/files/upload" {
@@ -273,15 +273,15 @@ func TestFilesUploadCmd(t *testing.T) {
 	root := NewRootCmd()
 	buf := new(bytes.Buffer)
 	root.SetOut(buf)
-	root.SetArgs([]string{"files", "upload", tmpFile.Name(), "123", "--chunk-size", "10"})
+	root.SetArgs([]string{"file", "upload", tmpFile.Name(), "123", "--chunk-size", "10"})
 
 	if err := root.Execute(); err != nil {
 		t.Fatalf("Execute() failed: %v", err)
 	}
 
 	output := buf.String()
-	if !strings.Contains(output, "Uploading [") {
-		t.Errorf("expected output to contain progress bar, but it was %q", output)
+	if !strings.Contains(output, "↑") && !strings.Contains(output, "upload.txt") {
+		t.Errorf("expected output to contain upload icon and filename, but it was %q", output)
 	}
 	if !strings.Contains(output, "chunks") {
 		t.Errorf("expected output to contain chunk info, but it was %q", output)

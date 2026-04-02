@@ -3,6 +3,7 @@ module github.com/openrelik/openrelik-go-client/cmd/cli
 go 1.24.2
 
 require (
+	github.com/google/uuid v1.6.0
 	github.com/openrelik/openrelik-go-client v0.0.0-00010101000000-000000000000
 	github.com/spf13/cobra v1.10.2
 	golang.org/x/term v0.30.0

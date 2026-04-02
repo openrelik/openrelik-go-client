@@ -12,9 +12,9 @@ var (
 	displayName string
 )
 
-func newFoldersCmd() *cobra.Command {
+func newFolderCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "folders",
+		Use:   "folder",
 		Short: "Manage folders",
 	}
 

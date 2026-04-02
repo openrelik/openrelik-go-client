@@ -75,7 +75,7 @@ func TestNewClient(t *testing.T) {
 		if err != nil {
 			t.Fatalf("NewClient failed: %v", err)
 		}
-		
+
 		transport, ok := client.httpClient.Transport.(*tokenRefreshTransport)
 		if !ok {
 			t.Fatal("Expected tokenRefreshTransport")
@@ -222,7 +222,7 @@ func TestWithHTTPClient_SideEffects(t *testing.T) {
 	t.Run("Scheme Mismatch (HTTPS -> HTTP)", func(t *testing.T) {
 		// Configure client for HTTPS
 		client, _ := NewClient("https://openrelik.local", "test-key")
-		
+
 		var lastReq *http.Request
 		recorder := RoundTripFunc(func(req *http.Request) (*http.Response, error) {
 			lastReq = req
@@ -264,7 +264,7 @@ func TestRoundTrip_RedirectLeakage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewClient failed: %v", err)
 	}
-	
+
 	ctx := context.Background()
 	req, _ := client.NewRequest(ctx, http.MethodGet, "/redirect", nil)
 	resp, err := client.Do(req, nil)
@@ -448,7 +448,7 @@ func TestDo(t *testing.T) {
 		if string(apiErr.Body) != "error detail" {
 			t.Errorf("Expected Body 'error detail', got %q", string(apiErr.Body))
 		}
-		
+
 		expectedMsgPrefix := "openrelik: GET http://"
 		if !strings.HasPrefix(apiErr.Error(), expectedMsgPrefix) {
 			t.Errorf("Expected error message to start with %q, got %q", expectedMsgPrefix, apiErr.Error())
@@ -466,7 +466,7 @@ func TestDo(t *testing.T) {
 
 		req, _ := client.NewRequest(ctx, http.MethodGet, "/structured-error", nil)
 		_, err := client.Do(req, nil)
-		
+
 		var apiErr *Error
 		if !errors.As(err, &apiErr) {
 			t.Fatalf("Expected *Error, got %T", err)
@@ -476,6 +476,33 @@ func TestDo(t *testing.T) {
 		}
 		if !strings.Contains(apiErr.Error(), "object not found") {
 			t.Errorf("Expected Error() to contain message, got %q", apiErr.Error())
+		}
+	})
+
+	t.Run("Readable API Error (Stripped Query)", func(t *testing.T) {
+		mux.HandleFunc("/api/v1/query-error", func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprint(w, `{"detail": "invalid input"}`)
+		})
+
+		// Use a URL with query parameters
+		req, _ := client.NewRequest(ctx, http.MethodGet, "/query-error?long_param=very_long_value&other=123", nil)
+		_, err := client.Do(req, nil)
+
+		var apiErr *Error
+		if !errors.As(err, &apiErr) {
+			t.Fatalf("Expected *Error, got %T", err)
+		}
+
+		errStr := apiErr.Error()
+		if strings.Contains(errStr, "very_long_value") {
+			t.Errorf("Error message should NOT contain query parameters: %q", errStr)
+		}
+		if !strings.Contains(errStr, "/api/v1/query-error") {
+			t.Errorf("Error message should contain the path: %q", errStr)
+		}
+		if !strings.Contains(errStr, "invalid input") {
+			t.Errorf("Error message should contain API error message: %q", errStr)
 		}
 	})
 
@@ -499,7 +526,7 @@ func TestDo(t *testing.T) {
 		if !errors.As(err, &apiErr) {
 			t.Fatalf("Expected *Error wrapping the decode error, got %T", err)
 		}
-		
+
 		if apiErr.Cause == nil {
 			t.Fatal("Expected Cause to be set on decode error")
 		}
@@ -629,7 +656,7 @@ func TestClient_LowLevelMethods(t *testing.T) {
 
 	t.Run("Patch", func(t *testing.T) {
 		var res testResource
-		_ , err := client.Patch(ctx, "/test", map[string]string{"name": "patch"}, &res)
+		_, err := client.Patch(ctx, "/test", map[string]string{"name": "patch"}, &res)
 		if err != nil {
 			t.Fatal(err)
 		}
