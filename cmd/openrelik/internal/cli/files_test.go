@@ -40,12 +40,10 @@ func TestFileListCmd(t *testing.T) {
 			name: "list files in folder",
 			args: []string{"file", "list", "123"},
 			expectedOutput: []string{
-				"ID                  : 1",
-				"DisplayName         : file1.txt",
-				"Filesize            : 1024",
-				"ID                  : 2",
-				"DisplayName         : file2.txt",
-				"Filesize            : 2048",
+				"file1.txt",
+				"1.0KB",
+				"file2.txt",
+				"2.0KB",
 			},
 		},
 		{
@@ -286,7 +284,7 @@ func TestFileUploadCmd(t *testing.T) {
 	if !strings.Contains(output, "chunks") {
 		t.Errorf("expected output to contain chunk info, but it was %q", output)
 	}
-	if !strings.Contains(output, "ID                  : 101") {
+	if !strings.Contains(output, "ID            101") {
 		t.Errorf("expected output to contain uploaded file ID, but it was %q", output)
 	}
 }

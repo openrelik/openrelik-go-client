@@ -15,6 +15,7 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -55,11 +56,17 @@ openrelik run strings --and grep 123`,
 	// dry-run applies to all worker subcommands
 	runCmd.PersistentFlags().Bool("dry-run", false, "Generate and display workflow spec without executing")
 
-	// Load workers from cache to build dynamic subcommands
-	workers, err := config.LoadWorkersCache()
+	// Load workers from cache (auto-refreshing if missing or stale) to build dynamic subcommands.
+	workers, err := config.LoadOrRefreshWorkersCache(context.Background(), func(ctx context.Context) ([]openrelik.Worker, error) {
+		client, err := newClient()
+		if err != nil {
+			return nil, err
+		}
+		ws, _, err := client.Workers().Registered(ctx)
+		return ws, err
+	})
 	if err != nil {
-		// If cache load fails, we don't add dynamic subcommands.
-		// User can run 'openrelik worker list --refresh' to populate cache.
+		// If workers cannot be loaded or fetched, skip dynamic subcommands.
 		return runCmd
 	}
 
@@ -154,6 +161,12 @@ func createWorkerCmd(worker openrelik.Worker, allWorkers []openrelik.Worker) *co
 					}
 				}
 				return nil
+			}
+
+			if !dryRun && downloadPolicy != "none" {
+				if info, err := os.Stat(outputDir); err != nil || !info.IsDir() {
+					return fmt.Errorf("output directory %q does not exist", outputDir)
+				}
 			}
 
 			client, err := newClient()

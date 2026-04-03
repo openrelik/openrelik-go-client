@@ -15,7 +15,9 @@
 package cli
 
 import (
+	"bytes"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/openrelik/openrelik-go-client"
@@ -100,6 +102,40 @@ func TestDynamicWorkerCommands(t *testing.T) {
 	}
 	if !foundGrep {
 		t.Errorf("grep subcommand not found")
+	}
+}
+
+func TestRunCmdOutputDirValidation(t *testing.T) {
+	tmpDir := t.TempDir()
+	config.SetBaseDir(tmpDir)
+	defer config.SetBaseDir("")
+
+	testWorkers := []openrelik.Worker{
+		{TaskName: "openrelik-worker-strings.tasks.strings", DisplayName: "Strings"},
+	}
+	if err := config.SaveWorkersCache(testWorkers); err != nil {
+		t.Fatalf("Failed to save workers cache: %v", err)
+	}
+
+	os.Setenv("OPENRELIK_API_KEY", "test-key")
+	os.Setenv("OPENRELIK_SERVER_URL", "http://localhost:19999")
+	defer func() {
+		os.Unsetenv("OPENRELIK_API_KEY")
+		os.Unsetenv("OPENRELIK_SERVER_URL")
+	}()
+
+	root := NewRootCmd()
+	buf := new(bytes.Buffer)
+	root.SetOut(buf)
+	root.SetErr(buf)
+	root.SetArgs([]string{"run", "-o", "/nonexistent/output/dir", "strings", "123"})
+
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("expected error for non-existent output directory, got nil")
+	}
+	if !strings.Contains(err.Error(), "does not exist") {
+		t.Errorf("expected 'does not exist' in error, got: %v", err)
 	}
 }
 

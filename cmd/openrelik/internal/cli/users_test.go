@@ -45,10 +45,10 @@ func TestMeCmd(t *testing.T) {
 
 	output := buf.String()
 	expectedFields := []string{
-		"ID                  : 1",
-		"Username            : testuser",
-		"DisplayName         : Test User",
-		"IsAdmin             : true",
+		"ID            1",
+		"Username      testuser",
+		"Display Name  Test User",
+		"IsAdmin       true",
 	}
 
 	for _, field := range expectedFields {
