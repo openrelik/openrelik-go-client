@@ -43,18 +43,15 @@ func TestFolderListCmd(t *testing.T) {
 			name: "list root folders",
 			args: []string{"folder", "list"},
 			expectedOutput: []string{
-				"ID                  : 1",
-				"DisplayName         : Root 1",
-				"ID                  : 2",
-				"DisplayName         : Root 2",
+				"Root 1",
+				"Root 2",
 			},
 		},
 		{
 			name: "list subfolders",
 			args: []string{"folder", "list", "1"},
 			expectedOutput: []string{
-				"ID                  : 3",
-				"DisplayName         : Sub 1",
+				"Sub 1",
 			},
 		},
 	}
@@ -114,16 +111,16 @@ func TestFolderCreateCmd(t *testing.T) {
 			name: "create root folder",
 			args: []string{"folder", "create", "--name", "New Root"},
 			expectedOutput: []string{
-				"ID                  : 100",
-				"DisplayName         : New Root",
+				"ID            100",
+				"Display Name  New Root",
 			},
 		},
 		{
 			name: "create subfolder",
 			args: []string{"folder", "create", "--name", "New Sub", "--parent", "1"},
 			expectedOutput: []string{
-				"ID                  : 200",
-				"DisplayName         : New Sub",
+				"ID            200",
+				"Display Name  New Sub",
 			},
 		},
 	}

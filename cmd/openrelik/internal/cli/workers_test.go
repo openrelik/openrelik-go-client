@@ -22,9 +22,16 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/openrelik/openrelik-go-client/cmd/cli/internal/config"
 )
 
 func TestWorkerListCmd(t *testing.T) {
+	// Use a temp dir so cache writes don't touch the real home directory.
+	tmpDir := t.TempDir()
+	config.SetBaseDir(tmpDir)
+	defer config.SetBaseDir("")
+
 	// Mock API server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/api/v1/taskqueue/tasks/registered" {
@@ -64,10 +71,8 @@ func TestWorkerListCmd(t *testing.T) {
 
 	output := buf.String()
 	expectedFields := []string{
-		"TaskName            : test-task",
-		"QueueName           : test-queue",
-		"DisplayName         : Test Task",
-		"Description         : A test task",
+		"Test Task",
+		"test-queue",
 	}
 
 	for _, field := range expectedFields {
@@ -78,6 +83,11 @@ func TestWorkerListCmd(t *testing.T) {
 }
 
 func TestWorkerListCmdJSON(t *testing.T) {
+	// Use a temp dir so cache writes don't touch the real home directory.
+	tmpDir := t.TempDir()
+	config.SetBaseDir(tmpDir)
+	defer config.SetBaseDir("")
+
 	// Mock API server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/api/v1/taskqueue/tasks/registered" {

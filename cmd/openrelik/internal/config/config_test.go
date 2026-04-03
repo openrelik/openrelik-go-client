@@ -1,10 +1,16 @@
 package config
 
 import (
+	"context"
+	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/openrelik/openrelik-go-client"
 )
 
 func TestConfig(t *testing.T) {
@@ -136,6 +142,68 @@ func TestConfig(t *testing.T) {
 		}
 		if strings.Contains(str, "secret-key") {
 			t.Error("masked string contains the secret key")
+		}
+	})
+
+	t.Run("WorkersCacheMissing", func(t *testing.T) {
+		_, err := LoadWorkersCache()
+		if !errors.Is(err, ErrCacheMissing) {
+			t.Errorf("expected ErrCacheMissing, got %v", err)
+		}
+	})
+
+	t.Run("WorkersCacheSaveAndLoad", func(t *testing.T) {
+		workers := []openrelik.Worker{{TaskName: "test-worker"}}
+		if err := SaveWorkersCache(workers); err != nil {
+			t.Fatalf("SaveWorkersCache failed: %v", err)
+		}
+		loaded, err := LoadWorkersCache()
+		if err != nil {
+			t.Fatalf("LoadWorkersCache failed: %v", err)
+		}
+		if len(loaded) != 1 || loaded[0].TaskName != "test-worker" {
+			t.Errorf("unexpected workers: %+v", loaded)
+		}
+	})
+
+	t.Run("WorkersCacheStale", func(t *testing.T) {
+		dir, _ := EnsureConfigDir()
+		// Write a cache entry with an old timestamp.
+		entry := workersCacheEntry{
+			Workers: []openrelik.Worker{{TaskName: "old-worker"}},
+			SavedAt: time.Now().Add(-2 * time.Hour),
+		}
+		data, _ := json.MarshalIndent(entry, "", "  ")
+		os.WriteFile(filepath.Join(dir, workersCacheFile), data, filePerm)
+
+		_, err := LoadWorkersCache()
+		if !errors.Is(err, ErrCacheStale) {
+			t.Errorf("expected ErrCacheStale, got %v", err)
+		}
+	})
+
+	t.Run("LoadOrRefreshWorkersCacheFromAPI", func(t *testing.T) {
+		// Remove the cache file to simulate missing cache.
+		dir, _ := GetConfigDir()
+		os.Remove(filepath.Join(dir, workersCacheFile))
+
+		refreshed := []openrelik.Worker{{TaskName: "fresh-worker"}}
+		workers, err := LoadOrRefreshWorkersCache(context.Background(), func(_ context.Context) ([]openrelik.Worker, error) {
+			return refreshed, nil
+		})
+		if err != nil {
+			t.Fatalf("LoadOrRefreshWorkersCache failed: %v", err)
+		}
+		if len(workers) != 1 || workers[0].TaskName != "fresh-worker" {
+			t.Errorf("unexpected workers: %+v", workers)
+		}
+		// Verify cache was saved.
+		loaded, err := LoadWorkersCache()
+		if err != nil {
+			t.Fatalf("cache should be fresh after refresh, got: %v", err)
+		}
+		if len(loaded) != 1 || loaded[0].TaskName != "fresh-worker" {
+			t.Errorf("unexpected cached workers: %+v", loaded)
 		}
 	})
 

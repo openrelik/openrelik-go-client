@@ -65,22 +65,22 @@ func TestWorkflowCmd(t *testing.T) {
 		{
 			name:     "info",
 			args:     []string{"workflow", "info", "123"},
-			expected: "ID                  : 123",
+			expected: "ID            123",
 		},
 		{
 			name:     "status",
 			args:     []string{"workflow", "status", "123"},
-			expected: "Status              : completed",
+			expected: "Status  completed",
 		},
 		{
 			name:     "run",
 			args:     []string{"workflow", "run", "123"},
-			expected: "DisplayName         : Running Workflow",
+			expected: "Display Name  Running Workflow",
 		},
 		{
 			name:     "create",
 			args:     []string{"workflow", "create", "--file", "456"},
-			expected: "ID                  : 124",
+			expected: "ID            124",
 		},
 	}
 

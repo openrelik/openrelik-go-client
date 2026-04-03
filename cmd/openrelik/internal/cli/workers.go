@@ -30,8 +30,6 @@ func newWorkerCmd() *cobra.Command {
 }
 
 func newListWorkersCmd() *cobra.Command {
-	var refresh bool
-
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List registered workers",
@@ -46,17 +44,13 @@ func newListWorkersCmd() *cobra.Command {
 				return err
 			}
 
-			if refresh {
-				if err := config.SaveWorkersCache(workers); err != nil {
-					return err
-				}
+			if err := config.SaveWorkersCache(workers); err != nil {
+				return err
 			}
 
 			return formatAndPrint(cmd, workers)
 		},
 	}
-
-	cmd.Flags().BoolVar(&refresh, "refresh", false, "Update the local workers cache")
 
 	return cmd
 }
