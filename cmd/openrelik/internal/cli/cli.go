@@ -22,6 +22,7 @@ func NewRootCmd() *cobra.Command {
 		Use:              "openrelik",
 		Short:            "OpenRelik CLI client",
 		Long:             `A command line tool to interact with the OpenRelik API`,
+		Version:          Version,
 		TraverseChildren: true,
 		SilenceErrors:    true,
 		SilenceUsage:     true,
