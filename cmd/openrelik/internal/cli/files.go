@@ -161,82 +161,90 @@ func newFileDownloadCmd() *cobra.Command {
 
 func newFileUploadCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:          "upload [FILE_PATH] [FOLDER_ID]",
-		Short:        "Upload a file",
-		Args:         cobra.ExactArgs(2),
+		Use:          "upload [FILE_PATH...] [FOLDER_ID]",
+		Short:        "Upload one or more files",
+		Args:         cobra.MinimumNArgs(2),
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			filePath := args[0]
-			fID, err := strconv.Atoi(args[1])
+			fID, err := strconv.Atoi(args[len(args)-1])
 			if err != nil {
 				return fmt.Errorf("invalid folder ID: %w", err)
 			}
-
-			file, err := os.Open(filePath)
-			if err != nil {
-				return err
-			}
-			defer file.Close()
-
-			fileInfo, err := file.Stat()
-			if err != nil {
-				return err
-			}
+			filePaths := args[:len(args)-1]
 
 			client, err := newClient()
 			if err != nil {
 				return err
 			}
 
-			var tracker *util.ProgressTracker
-			if !quiet {
-				tracker = util.NewProgressTracker(cmd.OutOrStdout(), fileInfo.Size(), "Upload: "+filepath.Base(filePath))
-				// Calculate total chunks for initial display
-				totalChunks := int(fileInfo.Size() / int64(chunkSize))
-				if fileInfo.Size()%int64(chunkSize) != 0 {
-					totalChunks++
+			for _, filePath := range filePaths {
+				file, err := os.Open(filePath)
+				if err != nil {
+					return err
 				}
-				if totalChunks == 0 {
-					totalChunks = 1
+
+				fileInfo, err := file.Stat()
+				if err != nil {
+					file.Close()
+					return err
 				}
-				tracker.SetTotalChunks(totalChunks)
-			}
 
-			opts := []openrelik.UploadOption{
-				openrelik.WithChunkSize(chunkSize),
-			}
-
-			// Track chunks and progress
-			lastChunkNum := 0
-			if tracker != nil {
-				opts = append(opts, openrelik.WithUploadProgress(func(bytesSent, totalBytes int64) {
-					currentChunk := int(bytesSent / int64(chunkSize))
-					if bytesSent%int64(chunkSize) != 0 {
-						currentChunk++
+				var tracker *util.ProgressTracker
+				if !quiet {
+					tracker = util.NewProgressTracker(cmd.OutOrStdout(), fileInfo.Size(), "Upload: "+filepath.Base(filePath))
+					// Calculate total chunks for initial display
+					totalChunks := int(fileInfo.Size() / int64(chunkSize))
+					if fileInfo.Size()%int64(chunkSize) != 0 {
+						totalChunks++
 					}
-					if currentChunk > lastChunkNum {
-						for i := 0; i < currentChunk-lastChunkNum; i++ {
-							tracker.IncrementChunk()
+					if totalChunks == 0 {
+						totalChunks = 1
+					}
+					tracker.SetTotalChunks(totalChunks)
+				}
+
+				opts := []openrelik.UploadOption{
+					openrelik.WithChunkSize(chunkSize),
+				}
+
+				// Track chunks and progress
+				lastChunkNum := 0
+				if tracker != nil {
+					opts = append(opts, openrelik.WithUploadProgress(func(bytesSent, totalBytes int64) {
+						currentChunk := int(bytesSent / int64(chunkSize))
+						if bytesSent%int64(chunkSize) != 0 {
+							currentChunk++
 						}
-						lastChunkNum = currentChunk
+						if currentChunk > lastChunkNum {
+							for i := 0; i < currentChunk-lastChunkNum; i++ {
+								tracker.IncrementChunk()
+							}
+							lastChunkNum = currentChunk
+						}
+						tracker.Update(bytesSent)
+					}))
+					opts = append(opts, openrelik.WithUploadRetry(func(chunkNum, attempt int, err error) {
+						tracker.IncrementRetry()
+					}))
+				}
+
+				result, _, err := client.Files().Upload(cmd.Context(), fID, filepath.Base(filePath), file, opts...)
+				file.Close()
+				if err != nil {
+					return err
+				}
+
+				if tracker != nil {
+					tracker.Finish()
+				}
+
+				if len(filePaths) == 1 {
+					if err := formatAndPrint(cmd, result); err != nil {
+						return err
 					}
-					tracker.Update(bytesSent)
-				}))
-				opts = append(opts, openrelik.WithUploadRetry(func(chunkNum, attempt int, err error) {
-					tracker.IncrementRetry()
-				}))
+				}
 			}
-
-			result, _, err := client.Files().Upload(cmd.Context(), fID, filepath.Base(filePath), file, opts...)
-			if err != nil {
-				return err
-			}
-
-			if tracker != nil {
-				tracker.Finish()
-			}
-
-			return formatAndPrint(cmd, result)
+			return nil
 		},
 	}
 
