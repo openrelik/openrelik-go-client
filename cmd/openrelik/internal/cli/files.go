@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -159,6 +160,65 @@ func newFileDownloadCmd() *cobra.Command {
 	}
 }
 
+// uploadFileWithProgress uploads a single local file to the given folder,
+// showing a progress tracker if quiet mode is off. It uses the package-level
+// chunkSize variable for chunked uploads.
+func uploadFileWithProgress(ctx context.Context, out io.Writer, client *openrelik.Client, filePath string, folderID int) (*openrelik.File, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	fileInfo, err := file.Stat()
+	if err != nil {
+		return nil, err
+	}
+
+	var tracker *util.ProgressTracker
+	if !quiet {
+		tracker = util.NewProgressTracker(out, fileInfo.Size(), "Upload: "+filepath.Base(filePath))
+		totalChunks := int(fileInfo.Size() / int64(chunkSize))
+		if fileInfo.Size()%int64(chunkSize) != 0 {
+			totalChunks++
+		}
+		if totalChunks == 0 {
+			totalChunks = 1
+		}
+		tracker.SetTotalChunks(totalChunks)
+	}
+
+	opts := []openrelik.UploadOption{
+		openrelik.WithChunkSize(chunkSize),
+	}
+
+	lastChunkNum := 0
+	if tracker != nil {
+		opts = append(opts, openrelik.WithUploadProgress(func(bytesSent, totalBytes int64) {
+			currentChunk := int(bytesSent / int64(chunkSize))
+			if bytesSent%int64(chunkSize) != 0 {
+				currentChunk++
+			}
+			if currentChunk > lastChunkNum {
+				for i := 0; i < currentChunk-lastChunkNum; i++ {
+					tracker.IncrementChunk()
+				}
+				lastChunkNum = currentChunk
+			}
+			tracker.Update(bytesSent)
+		}))
+		opts = append(opts, openrelik.WithUploadRetry(func(chunkNum, attempt int, err error) {
+			tracker.IncrementRetry()
+		}))
+	}
+
+	result, _, err := client.Files().Upload(ctx, folderID, filepath.Base(filePath), file, opts...)
+	if tracker != nil {
+		tracker.Finish()
+	}
+	return result, err
+}
+
 func newFileUploadCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:          "upload [FILE_PATH...] [FOLDER_ID]",
@@ -178,66 +238,10 @@ func newFileUploadCmd() *cobra.Command {
 			}
 
 			for _, filePath := range filePaths {
-				file, err := os.Open(filePath)
+				result, err := uploadFileWithProgress(cmd.Context(), cmd.OutOrStdout(), client, filePath, fID)
 				if err != nil {
 					return err
 				}
-
-				fileInfo, err := file.Stat()
-				if err != nil {
-					file.Close()
-					return err
-				}
-
-				var tracker *util.ProgressTracker
-				if !quiet {
-					tracker = util.NewProgressTracker(cmd.OutOrStdout(), fileInfo.Size(), "Upload: "+filepath.Base(filePath))
-					// Calculate total chunks for initial display
-					totalChunks := int(fileInfo.Size() / int64(chunkSize))
-					if fileInfo.Size()%int64(chunkSize) != 0 {
-						totalChunks++
-					}
-					if totalChunks == 0 {
-						totalChunks = 1
-					}
-					tracker.SetTotalChunks(totalChunks)
-				}
-
-				opts := []openrelik.UploadOption{
-					openrelik.WithChunkSize(chunkSize),
-				}
-
-				// Track chunks and progress
-				lastChunkNum := 0
-				if tracker != nil {
-					opts = append(opts, openrelik.WithUploadProgress(func(bytesSent, totalBytes int64) {
-						currentChunk := int(bytesSent / int64(chunkSize))
-						if bytesSent%int64(chunkSize) != 0 {
-							currentChunk++
-						}
-						if currentChunk > lastChunkNum {
-							for i := 0; i < currentChunk-lastChunkNum; i++ {
-								tracker.IncrementChunk()
-							}
-							lastChunkNum = currentChunk
-						}
-						tracker.Update(bytesSent)
-					}))
-					opts = append(opts, openrelik.WithUploadRetry(func(chunkNum, attempt int, err error) {
-						tracker.IncrementRetry()
-					}))
-				}
-
-				result, _, err := client.Files().Upload(cmd.Context(), fID, filepath.Base(filePath), file, opts...)
-				file.Close()
-				if err != nil {
-					return err
-				}
-
-				if tracker != nil {
-					tracker.Finish()
-				}
-
 				if len(filePaths) == 1 {
 					if err := formatAndPrint(cmd, result); err != nil {
 						return err
