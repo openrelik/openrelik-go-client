@@ -1,15 +1,21 @@
 package cli
 
 import (
+	"context"
 	"fmt"
+	"io"
+	"os"
+	"path/filepath"
 	"strconv"
 
+	openrelik "github.com/openrelik/openrelik-go-client"
 	"github.com/spf13/cobra"
 )
 
 var (
 	parentID    int
 	displayName string
+	maxDepth    int
 )
 
 func newFolderCmd() *cobra.Command {
@@ -20,6 +26,7 @@ func newFolderCmd() *cobra.Command {
 
 	cmd.AddCommand(newListFoldersCmd())
 	cmd.AddCommand(newCreateFolderCmd())
+	cmd.AddCommand(newMirrorFolderCmd())
 	return cmd
 }
 
@@ -88,4 +95,69 @@ func newCreateFolderCmd() *cobra.Command {
 	cmd.Flags().IntVarP(&parentID, "parent", "p", 0, "Parent folder ID")
 	cmd.MarkFlagRequired("name")
 	return cmd
+}
+
+func newMirrorFolderCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:          "mirror <LOCAL_FOLDER> [FOLDER_ID]",
+		Short:        "Mirror a local folder tree into OpenRelik",
+		Args:         cobra.RangeArgs(1, 2),
+		SilenceUsage: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			localPath := args[0]
+
+			client, err := newClient()
+			if err != nil {
+				return err
+			}
+
+			var rootFolderID int
+			if len(args) == 2 {
+				rootFolderID, err = strconv.Atoi(args[1])
+				if err != nil {
+					return fmt.Errorf("invalid folder ID: %w", err)
+				}
+			} else {
+				folder, _, err := client.Folders().CreateRootFolder(cmd.Context(), filepath.Base(localPath))
+				if err != nil {
+					return fmt.Errorf("failed to create root folder: %w", err)
+				}
+				rootFolderID = folder.ID
+			}
+
+			return mirrorDir(cmd.Context(), cmd.OutOrStdout(), client, localPath, rootFolderID, 0)
+		},
+	}
+
+	cmd.Flags().IntVarP(&maxDepth, "depth", "d", 3, "Maximum subfolder depth to mirror")
+	cmd.Flags().IntVar(&chunkSize, "chunk-size", 4*1024*1024, "Chunk size in bytes for uploads")
+	return cmd
+}
+
+func mirrorDir(ctx context.Context, out io.Writer, client *openrelik.Client, localPath string, remoteFolderID int, depth int) error {
+	entries, err := os.ReadDir(localPath)
+	if err != nil {
+		return fmt.Errorf("failed to read directory %s: %w", localPath, err)
+	}
+
+	for _, entry := range entries {
+		entryPath := filepath.Join(localPath, entry.Name())
+		if entry.IsDir() {
+			if depth >= maxDepth {
+				continue
+			}
+			folder, _, err := client.Folders().CreateSubFolder(ctx, remoteFolderID, entry.Name())
+			if err != nil {
+				return fmt.Errorf("failed to create subfolder %s: %w", entry.Name(), err)
+			}
+			if err := mirrorDir(ctx, out, client, entryPath, folder.ID, depth+1); err != nil {
+				return err
+			}
+		} else {
+			if _, err := uploadFileWithProgress(ctx, out, client, entryPath, remoteFolderID); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
