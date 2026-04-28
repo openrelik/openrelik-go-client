@@ -262,29 +262,85 @@ func TestFileUploadCmd(t *testing.T) {
 		os.Unsetenv("OPENRELIK_SERVER_URL")
 	}()
 
-	// Create a dummy file to upload
-	tmpFile, _ := os.CreateTemp("", "openrelik-upload-*")
-	defer os.Remove(tmpFile.Name())
-	tmpFile.WriteString("hello upload!!")
-	tmpFile.Close()
+	t.Run("single file upload", func(t *testing.T) {
+		// Create a dummy file to upload
+		tmpFile, _ := os.CreateTemp("", "openrelik-upload-*")
+		defer os.Remove(tmpFile.Name())
+		tmpFile.WriteString("hello upload!!")
+		tmpFile.Close()
 
-	root := NewRootCmd()
-	buf := new(bytes.Buffer)
-	root.SetOut(buf)
-	root.SetArgs([]string{"file", "upload", tmpFile.Name(), "123", "--chunk-size", "10"})
+		root := NewRootCmd()
+		buf := new(bytes.Buffer)
+		root.SetOut(buf)
+		root.SetArgs([]string{"file", "upload", tmpFile.Name(), "123", "--chunk-size", "10"})
 
-	if err := root.Execute(); err != nil {
-		t.Fatalf("Execute() failed: %v", err)
-	}
+		if err := root.Execute(); err != nil {
+			t.Fatalf("Execute() failed: %v", err)
+		}
 
-	output := buf.String()
-	if !strings.Contains(output, "↑") && !strings.Contains(output, "upload.txt") {
-		t.Errorf("expected output to contain upload icon and filename, but it was %q", output)
-	}
-	if !strings.Contains(output, "chunks") {
-		t.Errorf("expected output to contain chunk info, but it was %q", output)
-	}
-	if !strings.Contains(output, "ID            101") {
-		t.Errorf("expected output to contain uploaded file ID, but it was %q", output)
-	}
+		output := buf.String()
+		if !strings.Contains(output, "↑") && !strings.Contains(output, "upload.txt") {
+			t.Errorf("expected output to contain upload icon and filename, but it was %q", output)
+		}
+		if !strings.Contains(output, "chunks") {
+			t.Errorf("expected output to contain chunk info, but it was %q", output)
+		}
+		if !strings.Contains(output, "ID            101") {
+			t.Errorf("expected output to contain uploaded file ID, but it was %q", output)
+		}
+	})
+
+	t.Run("multiple file upload", func(t *testing.T) {
+		tmpFile1, _ := os.CreateTemp("", "openrelik-upload-1-*")
+		defer os.Remove(tmpFile1.Name())
+		tmpFile1.WriteString("hello upload 1!!")
+		tmpFile1.Close()
+
+		tmpFile2, _ := os.CreateTemp("", "openrelik-upload-2-*")
+		defer os.Remove(tmpFile2.Name())
+		tmpFile2.WriteString("hello upload 2!!")
+		tmpFile2.Close()
+
+		root := NewRootCmd()
+		buf := new(bytes.Buffer)
+		root.SetOut(buf)
+		root.SetArgs([]string{"file", "upload", tmpFile1.Name(), tmpFile2.Name(), "123"})
+
+		if err := root.Execute(); err != nil {
+			t.Fatalf("Execute() failed: %v", err)
+		}
+
+		output := buf.String()
+		// FprintTable should be used for multiple results
+		if !strings.Contains(output, "ID") || !strings.Contains(output, "DISPLAY NAME") {
+			t.Errorf("expected output to contain table headers, but it was %q", output)
+		}
+		if !strings.Contains(output, "upload.txt") {
+			t.Errorf("expected output to contain uploaded filename, but it was %q", output)
+		}
+		// Since mock returns same ID/Name for every upload
+		count := strings.Count(output, "101")
+		if count < 2 {
+			t.Errorf("expected at least 2 entries for ID 101, got %d. Output: %q", count, output)
+		}
+	})
+
+	t.Run("directory upload error", func(t *testing.T) {
+		tmpDir, _ := os.MkdirTemp("", "openrelik-upload-dir-*")
+		defer os.RemoveAll(tmpDir)
+
+		root := NewRootCmd()
+		buf := new(bytes.Buffer)
+		root.SetOut(buf)
+		root.SetErr(buf)
+		root.SetArgs([]string{"file", "upload", tmpDir, "123"})
+
+		err := root.Execute()
+		if err == nil {
+			t.Fatal("expected error when uploading a directory")
+		}
+		if !strings.Contains(err.Error(), "is a directory, not a file") {
+			t.Errorf("expected 'is a directory' error, got %v", err)
+		}
+	})
 }

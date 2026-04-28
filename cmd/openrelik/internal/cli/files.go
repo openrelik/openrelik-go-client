@@ -174,6 +174,9 @@ func uploadFileWithProgress(ctx context.Context, out io.Writer, client *openreli
 	if err != nil {
 		return nil, err
 	}
+	if fileInfo.IsDir() {
+		return nil, fmt.Errorf("%s is a directory, not a file", filePath)
+	}
 
 	var tracker *util.ProgressTracker
 	if !quiet {
@@ -237,18 +240,19 @@ func newFileUploadCmd() *cobra.Command {
 				return err
 			}
 
+			var results []*openrelik.File
 			for _, filePath := range filePaths {
 				result, err := uploadFileWithProgress(cmd.Context(), cmd.OutOrStdout(), client, filePath, fID)
 				if err != nil {
 					return err
 				}
-				if len(filePaths) == 1 {
-					if err := formatAndPrint(cmd, result); err != nil {
-						return err
-					}
-				}
+				results = append(results, result)
 			}
-			return nil
+
+			if len(results) == 1 {
+				return formatAndPrint(cmd, results[0])
+			}
+			return formatAndPrint(cmd, results)
 		},
 	}
 
