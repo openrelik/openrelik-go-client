@@ -36,9 +36,12 @@ homebrew_casks:
     repository:
       owner: openrelik
       name: homebrew-openrelik-cli
-      git:
-        url: "git@github.com:openrelik/homebrew-openrelik-cli.git"
+      token: "{{ .Env.GITHUB_TOKEN }}"
     homepage: "https://github.com/openrelik/openrelik-go-client"
     description: "A command line tool to interact with the OpenRelik API"
     license: "Apache-2.0"
     binaries: [openrelik]
+    hooks:
+      post:
+        install: |
+          system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/openrelik"]
