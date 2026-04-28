@@ -22,6 +22,7 @@ func newFolderCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "folder",
 		Short: "Manage folders",
+		Long:  `Create, list, and mirror folders in OpenRelik.`,
 	}
 
 	cmd.AddCommand(newListFoldersCmd())
@@ -34,6 +35,19 @@ func newListFoldersCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "list [PARENT_ID]",
 		Short: "List folders",
+		Long: `List folders in OpenRelik.
+
+Without PARENT_ID, lists all root folders. With PARENT_ID, lists the
+direct subfolders of that folder. PARENT_ID is the integer ID shown
+by a previous 'folder list' call.`,
+		Example: `  # List root folders
+  openrelik folder list
+
+  # List subfolders of folder 42
+  openrelik folder list 42
+
+  # Output as JSON
+  openrelik folder list --format json`,
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var pID int
@@ -70,6 +84,15 @@ func newCreateFolderCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a folder",
+		Long: `Create a new folder in OpenRelik.
+
+Without --parent, creates a root-level folder. With --parent, creates a
+subfolder inside the specified parent folder.`,
+		Example: `  # Create a root folder
+  openrelik folder create --name "Investigations"
+
+  # Create a subfolder inside folder 42
+  openrelik folder create --name "Case 2024-001" --parent 42`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := newClient()
 			if err != nil {
@@ -99,8 +122,22 @@ func newCreateFolderCmd() *cobra.Command {
 
 func newMirrorFolderCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:          "mirror <LOCAL_FOLDER> [FOLDER_ID]",
-		Short:        "Mirror a local folder tree into OpenRelik",
+		Use:   "mirror <LOCAL_FOLDER> [FOLDER_ID]",
+		Short: "Mirror a local folder tree into OpenRelik",
+		Long: `Recursively upload a local directory tree into OpenRelik, preserving the
+folder hierarchy up to --depth levels deep.
+
+LOCAL_FOLDER is the path to the local directory to mirror. FOLDER_ID is the
+integer ID of an existing OpenRelik folder to mirror into; if omitted, a new
+root folder named after the local directory is created automatically.`,
+		Example: `  # Mirror into a new root folder (named after the local directory)
+  openrelik folder mirror ./evidence/
+
+  # Mirror into an existing folder
+  openrelik folder mirror ./evidence/ 42
+
+  # Mirror up to 5 levels deep with a larger chunk size
+  openrelik folder mirror ./evidence/ 42 --depth 5 --chunk-size 8388608`,
 		Args:         cobra.RangeArgs(1, 2),
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {

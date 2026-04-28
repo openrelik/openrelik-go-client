@@ -33,19 +33,32 @@ func newRunCmd() *cobra.Command {
 		Use:   "run",
 		Short: "Run a worker on files",
 		Long: `Execute OpenRelik workers on files.
-Subcommands are dynamically generated based on registered workers.
 
-Command chaining is supported using --then:
-openrelik run strings --then grep --regex "foo" 123
+Subcommands are dynamically generated from registered workers. Run
+'openrelik worker list' to refresh the worker cache if new workers are
+not yet visible.
 
-Parallel execution is supported using --and:
-openrelik run strings --and grep 123`,
+Inputs are either integer file IDs or local file paths (auto-uploaded):
+
+  openrelik run strings 123           # file ID
+  openrelik run strings report.pdf    # local file (uploaded first)
+
+Chain workers in sequence with --then (each worker receives the outputs
+of the previous one):
+
+  openrelik run strings --then grep --regex "password" 123
+
+Run workers in parallel with --and (both receive the same input files):
+
+  openrelik run strings --and grep --regex "password" 123
+
+Use --dry-run to preview the generated workflow spec without executing it.`,
 		TraverseChildren: true,
 	}
 
 	// Global run flags
 	runCmd.PersistentFlags().StringP("output-dir", "o", ".", "Output directory for downloads")
-	runCmd.PersistentFlags().String("download", "final", "Download policy (final, all)")
+	runCmd.PersistentFlags().String("download", "final", "Download policy (final, all, none)")
 	runCmd.PersistentFlags().Bool("no-download", false, "Do not download any results")
 	runCmd.PersistentFlags().Bool("task-folders", false, "Organize downloads into task folders")
 	runCmd.PersistentFlags().Int("upload-folder-id", 0, "Folder ID to upload local files to")
