@@ -38,6 +38,7 @@ homebrew_casks:
       name: homebrew-openrelik-cli
       git:
         url: "git@github.com:openrelik/homebrew-openrelik-cli.git"
+        private_key: "{{ .Env.GORELEASER_KEY }}"
     homepage: "https://github.com/openrelik/openrelik-go-client"
     description: "A command line tool to interact with the OpenRelik API"
     license: "Apache-2.0"
