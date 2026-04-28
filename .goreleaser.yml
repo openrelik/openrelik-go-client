@@ -41,3 +41,7 @@ homebrew_casks:
     description: "A command line tool to interact with the OpenRelik API"
     license: "Apache-2.0"
     binaries: [openrelik]
+    hooks:
+      post:
+        install: |
+          system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/openrelik"]
