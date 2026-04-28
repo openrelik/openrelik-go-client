@@ -1,0 +1,44 @@
+version: 2
+
+project_name: openrelik
+
+before:
+  hooks:
+    - go work sync
+
+builds:
+  - main: ./cmd/openrelik
+    binary: openrelik
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w -X github.com/openrelik/openrelik-go-client/cmd/cli/internal/cli.Version={{.Version}}
+
+archives:
+  - formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+
+checksum:
+  name_template: checksums.txt
+
+homebrew_casks:
+  - name: openrelik
+    repository:
+      owner: openrelik
+      name: homebrew-openrelik-cli
+      git:
+        url: "git@github.com:openrelik/homebrew-openrelik-cli.git"
+    homepage: "https://github.com/openrelik/openrelik-go-client"
+    description: "A command line tool to interact with the OpenRelik API"
+    license: "Apache-2.0"
+    binaries: [openrelik]
