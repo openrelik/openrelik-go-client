@@ -23,6 +23,7 @@ func newWorkerCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "worker",
 		Short: "Manage workers",
+		Long:  `Inspect workers registered with OpenRelik.`,
 	}
 
 	cmd.AddCommand(newListWorkersCmd())
@@ -33,6 +34,15 @@ func newListWorkersCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List registered workers",
+		Long: `List all workers currently registered with the OpenRelik server.
+
+This command also refreshes the local worker cache used to generate
+'run' subcommands. Run this after new workers are deployed to pick them up.`,
+		Example: `  # List all registered workers
+  openrelik worker list
+
+  # Output as JSON
+  openrelik worker list --format json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := newClient()
 			if err != nil {

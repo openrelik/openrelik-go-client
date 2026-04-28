@@ -19,6 +19,7 @@ func newAuthCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "auth",
 		Short: "Manage authentication",
+		Long:  `Manage OpenRelik authentication credentials.`,
 	}
 
 	cmd.AddCommand(newLoginCmd())
@@ -29,6 +30,18 @@ func newLoginCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "login",
 		Short: "Login to OpenRelik",
+		Long: `Interactively prompt for a server URL and API key, then save them to
+~/.openrelik/ for use by all subsequent commands.
+
+As an alternative to interactive login, set the OPENRELIK_SERVER_URL and
+OPENRELIK_API_KEY environment variables — they take precedence over the
+stored credentials.`,
+		Example: `  # Interactive login
+  openrelik auth login
+
+  # Non-interactive via environment variables
+  export OPENRELIK_SERVER_URL=http://localhost:8710
+  export OPENRELIK_API_KEY=your-refresh-token`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var server, key string
 

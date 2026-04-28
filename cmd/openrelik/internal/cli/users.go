@@ -8,6 +8,7 @@ func newUserCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "user",
 		Short: "Manage users",
+		Long:  `Manage OpenRelik user accounts.`,
 	}
 
 	cmd.AddCommand(newMeCmd())
@@ -18,6 +19,12 @@ func newMeCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "me",
 		Short: "Get current user profile",
+		Long:  `Display the profile of the currently authenticated user.`,
+		Example: `  # Show current user
+  openrelik user me
+
+  # Output as JSON
+  openrelik user me --format json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := newClient()
 			if err != nil {

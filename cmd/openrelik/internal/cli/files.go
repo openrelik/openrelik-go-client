@@ -21,6 +21,7 @@ func newFileCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "file",
 		Short: "Manage files",
+		Long:  `Upload, download, and inspect files stored in OpenRelik.`,
 	}
 
 	cmd.AddCommand(newListFilesCmd())
@@ -32,8 +33,16 @@ func newFileCmd() *cobra.Command {
 
 func newListFilesCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "list [FOLDER_ID]",
+		Use:   "list <FOLDER_ID>",
 		Short: "List files in a folder",
+		Long: `List all files contained in the specified folder.
+
+FOLDER_ID is the integer ID of the folder, as shown by 'folder list'.`,
+		Example: `  # List files in folder 42
+  openrelik file list 42
+
+  # Output as JSON
+  openrelik file list 42 --format json`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			fID, err := strconv.Atoi(args[0])
@@ -58,8 +67,17 @@ func newListFilesCmd() *cobra.Command {
 
 func newFileInfoCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "info [ID]",
+		Use:   "info <ID>",
 		Short: "Get file metadata",
+		Long: `Display detailed metadata for a file, including size, hashes, MIME type,
+and timestamps.
+
+ID is the integer file ID, as shown by 'file list'.`,
+		Example: `  # Show metadata for file 123
+  openrelik file info 123
+
+  # Output as JSON
+  openrelik file info 123 --format json`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			fileID, err := strconv.Atoi(args[0])
@@ -84,8 +102,22 @@ func newFileInfoCmd() *cobra.Command {
 
 func newFileDownloadCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:          "download [ID] [DESTINATION]",
-		Short:        "Download a file",
+		Use:   "download <ID> [DESTINATION]",
+		Short: "Download a file",
+		Long: `Download a file from OpenRelik to the local filesystem.
+
+ID is the integer file ID. DESTINATION may be a file path or an existing
+directory; if a directory is given, the original filename is used inside it.
+If DESTINATION is omitted, the file is saved to the current directory using
+its original filename. You will be prompted before overwriting an existing file.`,
+		Example: `  # Download to current directory (original filename)
+  openrelik file download 123
+
+  # Download to a specific path
+  openrelik file download 123 ./output/report.pdf
+
+  # Download into a directory (uses original filename)
+  openrelik file download 123 ./output/`,
 		Args:         cobra.RangeArgs(1, 2),
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -128,7 +160,8 @@ func newFileDownloadCmd() *cobra.Command {
 					return err
 				}
 				if !confirmed {
-					return fmt.Errorf("download cancelled")
+					fmt.Fprintln(cmd.ErrOrStderr(), "Cancelled.")
+					return nil
 				}
 			}
 
@@ -224,8 +257,22 @@ func uploadFileWithProgress(ctx context.Context, out io.Writer, client *openreli
 
 func newFileUploadCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:          "upload [FILE_PATH...] [FOLDER_ID]",
-		Short:        "Upload one or more files",
+		Use:   "upload <FILE_PATH> [FILE_PATH...] <FOLDER_ID>",
+		Short: "Upload one or more files",
+		Long: `Upload one or more local files to an OpenRelik folder using resumable
+chunked uploads with progress tracking.
+
+All arguments before the last are treated as local file paths; the last
+argument is the integer FOLDER_ID of the destination folder. At least one
+file path and a folder ID are required.`,
+		Example: `  # Upload a single file to folder 42
+  openrelik file upload report.pdf 42
+
+  # Upload multiple files
+  openrelik file upload file1.txt file2.txt file3.txt 42
+
+  # Use a larger chunk size (bytes) for fast networks
+  openrelik file upload large.bin 42 --chunk-size 8388608`,
 		Args:         cobra.MinimumNArgs(2),
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {

@@ -217,9 +217,9 @@ func FprintTable(w io.Writer, s interface{}) {
 		cols = append(cols, f.Index[0])
 		headers = append(headers, "TYPE")
 	}
-	if f, ok := t.FieldByName("QueueName"); ok {
+	if f, ok := t.FieldByName("Description"); ok {
 		cols = append(cols, f.Index[0])
-		headers = append(headers, "QUEUE")
+		headers = append(headers, "DESCRIPTION")
 	}
 	if f, ok := t.FieldByName("StatusShort"); ok {
 		cols = append(cols, f.Index[0])
@@ -294,6 +294,10 @@ func FprintTable(w io.Writer, s interface{}) {
 				}
 			} else {
 				str = fmt.Sprintf("%v", fieldVal.Interface())
+			}
+
+			if headers[j] == "DESCRIPTION" && len(str) > 60 {
+				str = str[:57] + "..."
 			}
 
 			fmt.Fprint(tw, str)
