@@ -72,7 +72,7 @@ func TestWorkerListCmd(t *testing.T) {
 	output := buf.String()
 	expectedFields := []string{
 		"Test Task",
-		"test-queue",
+		"A test task",
 	}
 
 	for _, field := range expectedFields {

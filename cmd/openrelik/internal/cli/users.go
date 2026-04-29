@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"github.com/openrelik/openrelik-go-client/cmd/cli/internal/view"
 	"github.com/spf13/cobra"
 )
 
@@ -36,7 +37,7 @@ func newMeCmd() *cobra.Command {
 				return err
 			}
 
-			return formatAndPrint(cmd, user)
+			return formatAndPrint(cmd, &view.UserMeView{User: user})
 		},
 	}
 }

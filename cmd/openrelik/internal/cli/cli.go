@@ -30,7 +30,7 @@ func NewRootCmd() *cobra.Command {
 
 	cmd.CompletionOptions.DisableDefaultCmd = true
 
-	cmd.PersistentFlags().StringVar(&outputFormat, "format", "text", "Output format (text, json)")
+	cmd.PersistentFlags().StringVar(&outputFormat, "format", "human", "Output format (human, json, verbose)")
 	cmd.PersistentFlags().BoolVarP(&quiet, "quiet", "q", false, "Suppress all output")
 
 	cmd.AddCommand(newAuthCmd())
@@ -82,8 +82,22 @@ func formatAndPrint(cmd *cobra.Command, result interface{}) error {
 	}
 	switch outputFormat {
 	case "json":
-		return util.FprintJSON(cmd.OutOrStdout(), result)
-	default:
+		payload := result
+		if u, ok := result.(util.JSONUnwrapper); ok {
+			payload = u.UnwrapJSON()
+		}
+		return util.FprintJSON(cmd.OutOrStdout(), payload)
+	case "verbose":
+		payload := result
+		if u, ok := result.(util.JSONUnwrapper); ok {
+			payload = u.UnwrapJSON()
+		}
+		util.FprintStruct(cmd.OutOrStdout(), payload)
+		return nil
+	default: // "human"
+		if hr, ok := result.(util.HumanRenderer); ok {
+			return hr.RenderHuman(cmd.OutOrStdout())
+		}
 		util.FprintStruct(cmd.OutOrStdout(), result)
 		return nil
 	}

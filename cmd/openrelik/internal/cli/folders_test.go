@@ -111,16 +111,14 @@ func TestFolderCreateCmd(t *testing.T) {
 			name: "create root folder",
 			args: []string{"folder", "create", "--name", "New Root"},
 			expectedOutput: []string{
-				"ID            100",
-				"Display Name  New Root",
+				`"New Root" created (ID 100)`,
 			},
 		},
 		{
 			name: "create subfolder",
 			args: []string{"folder", "create", "--name", "New Sub", "--parent", "1"},
 			expectedOutput: []string{
-				"ID            200",
-				"Display Name  New Sub",
+				`"New Sub" created (ID 200)`,
 			},
 		},
 	}

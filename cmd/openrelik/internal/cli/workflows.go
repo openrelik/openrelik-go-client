@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/openrelik/openrelik-go-client/cmd/cli/internal/view"
 	"github.com/spf13/cobra"
 )
 
@@ -71,7 +72,7 @@ the workflow on an existing template.`,
 				return err
 			}
 
-			return formatAndPrint(cmd, workflow)
+			return formatAndPrint(cmd, &view.WorkflowCreatedView{Workflow: workflow})
 		},
 	}
 
@@ -112,7 +113,7 @@ WORKFLOW_ID is the integer ID of the workflow.`,
 				return err
 			}
 
-			return formatAndPrint(cmd, workflow)
+			return formatAndPrint(cmd, &view.WorkflowInfoView{Workflow: workflow})
 		},
 	}
 }
@@ -152,7 +153,20 @@ WORKFLOW_ID is the integer ID of the workflow.`,
 				return err
 			}
 
-			return formatAndPrint(cmd, status)
+			// The status endpoint omits runtime; patch it in from the full workflow.
+			runtimeByID := make(map[int]*float64, len(workflow.Tasks))
+			for _, t := range workflow.Tasks {
+				if t.Runtime != nil {
+					runtimeByID[t.ID] = t.Runtime
+				}
+			}
+			for i := range status.Tasks {
+				if rt, ok := runtimeByID[status.Tasks[i].ID]; ok {
+					status.Tasks[i].Runtime = rt
+				}
+			}
+
+			return formatAndPrint(cmd, &view.WorkflowStatusView{WorkflowStatus: status})
 		},
 	}
 }
@@ -203,7 +217,7 @@ monitor progress after starting.`,
 				return err
 			}
 
-			return formatAndPrint(cmd, updatedWorkflow)
+			return formatAndPrint(cmd, &view.WorkflowStartedView{Workflow: updatedWorkflow})
 		},
 	}
 

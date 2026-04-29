@@ -48,7 +48,7 @@ func TestMeCmd(t *testing.T) {
 		"ID            1",
 		"Username      testuser",
 		"Display Name  Test User",
-		"IsAdmin       true",
+		"Admin         true",
 	}
 
 	for _, field := range expectedFields {
