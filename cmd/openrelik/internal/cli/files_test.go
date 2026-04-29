@@ -279,13 +279,10 @@ func TestFileUploadCmd(t *testing.T) {
 		}
 
 		output := buf.String()
-		if !strings.Contains(output, "↑") && !strings.Contains(output, "upload.txt") {
-			t.Errorf("expected output to contain upload icon and filename, but it was %q", output)
+		if !strings.Contains(output, "upload.txt") {
+			t.Errorf("expected output to contain uploaded filename, but it was %q", output)
 		}
-		if !strings.Contains(output, "chunks") {
-			t.Errorf("expected output to contain chunk info, but it was %q", output)
-		}
-		if !strings.Contains(output, "ID            101") {
+		if !strings.Contains(output, "(ID 101)") {
 			t.Errorf("expected output to contain uploaded file ID, but it was %q", output)
 		}
 	})
@@ -311,17 +308,13 @@ func TestFileUploadCmd(t *testing.T) {
 		}
 
 		output := buf.String()
-		// FprintTable should be used for multiple results
-		if !strings.Contains(output, "ID") || !strings.Contains(output, "DISPLAY NAME") {
-			t.Errorf("expected output to contain table headers, but it was %q", output)
-		}
 		if !strings.Contains(output, "upload.txt") {
 			t.Errorf("expected output to contain uploaded filename, but it was %q", output)
 		}
-		// Since mock returns same ID/Name for every upload
-		count := strings.Count(output, "101")
+		// Each file gets its own confirmation line; mock returns ID 101 for every upload.
+		count := strings.Count(output, "(ID 101)")
 		if count < 2 {
-			t.Errorf("expected at least 2 entries for ID 101, got %d. Output: %q", count, output)
+			t.Errorf("expected at least 2 confirmation lines for ID 101, got %d. Output: %q", count, output)
 		}
 	})
 

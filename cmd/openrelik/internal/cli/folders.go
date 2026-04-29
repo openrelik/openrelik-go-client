@@ -9,6 +9,7 @@ import (
 	"strconv"
 
 	openrelik "github.com/openrelik/openrelik-go-client"
+	"github.com/openrelik/openrelik-go-client/cmd/cli/internal/view"
 	"github.com/spf13/cobra"
 )
 
@@ -64,7 +65,7 @@ by a previous 'folder list' call.`,
 				return err
 			}
 
-			var folders interface{}
+			var folders []openrelik.Folder
 			if pID != 0 {
 				folders, _, err = client.Folders().ListSubFolders(cmd.Context(), pID)
 			} else {
@@ -75,7 +76,7 @@ by a previous 'folder list' call.`,
 				return err
 			}
 
-			return formatAndPrint(cmd, folders)
+			return formatAndPrint(cmd, &view.FolderListView{Folders: folders})
 		},
 	}
 }
@@ -99,7 +100,7 @@ subfolder inside the specified parent folder.`,
 				return err
 			}
 
-			var folder interface{}
+			var folder *openrelik.Folder
 			if parentID != 0 {
 				folder, _, err = client.Folders().CreateSubFolder(cmd.Context(), parentID, displayName)
 			} else {
@@ -110,7 +111,7 @@ subfolder inside the specified parent folder.`,
 				return err
 			}
 
-			return formatAndPrint(cmd, folder)
+			return formatAndPrint(cmd, &view.FolderCreatedView{Folder: folder})
 		},
 	}
 
@@ -162,7 +163,7 @@ root folder named after the local directory is created automatically.`,
 				rootFolderID = folder.ID
 			}
 
-			return mirrorDir(cmd.Context(), cmd.OutOrStdout(), client, localPath, rootFolderID, 0)
+			return mirrorDir(cmd.Context(), cmd.ErrOrStderr(), client, localPath, rootFolderID, 0)
 		},
 	}
 

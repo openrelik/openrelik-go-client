@@ -10,6 +10,7 @@ import (
 
 	"github.com/openrelik/openrelik-go-client"
 	"github.com/openrelik/openrelik-go-client/cmd/cli/internal/util"
+	"github.com/openrelik/openrelik-go-client/cmd/cli/internal/view"
 	"github.com/spf13/cobra"
 )
 
@@ -60,7 +61,7 @@ FOLDER_ID is the integer ID of the folder, as shown by 'folder list'.`,
 				return err
 			}
 
-			return formatAndPrint(cmd, files)
+			return formatAndPrint(cmd, &view.FileListView{Files: files})
 		},
 	}
 }
@@ -95,7 +96,7 @@ ID is the integer file ID, as shown by 'file list'.`,
 				return err
 			}
 
-			return formatAndPrint(cmd, file)
+			return formatAndPrint(cmd, &view.FileInfoView{File: file})
 		},
 	}
 }
@@ -160,8 +161,7 @@ its original filename. You will be prompted before overwriting an existing file.
 					return err
 				}
 				if !confirmed {
-					fmt.Fprintln(cmd.ErrOrStderr(), "Cancelled.")
-					return nil
+					return fmt.Errorf("cancelled")
 				}
 			}
 
@@ -180,7 +180,7 @@ its original filename. You will be prompted before overwriting an existing file.
 
 			var r io.Reader = body
 			if !quiet {
-				tracker := util.NewProgressTracker(cmd.OutOrStdout(), file.Filesize, "Download: "+file.DisplayName)
+				tracker := util.NewProgressTracker(cmd.ErrOrStderr(), file.Filesize, "Download: "+file.DisplayName)
 				r = &util.ProgressReader{
 					Reader:  body,
 					Tracker: tracker,
@@ -289,7 +289,7 @@ file path and a folder ID are required.`,
 
 			var results []*openrelik.File
 			for _, filePath := range filePaths {
-				result, err := uploadFileWithProgress(cmd.Context(), cmd.OutOrStdout(), client, filePath, fID)
+				result, err := uploadFileWithProgress(cmd.Context(), cmd.ErrOrStderr(), client, filePath, fID)
 				if err != nil {
 					return err
 				}
@@ -297,9 +297,9 @@ file path and a folder ID are required.`,
 			}
 
 			if len(results) == 1 {
-				return formatAndPrint(cmd, results[0])
+				return formatAndPrint(cmd, &view.FileUploadedView{File: results[0], FolderID: fID})
 			}
-			return formatAndPrint(cmd, results)
+			return formatAndPrint(cmd, &view.FileUploadedMultiView{Files: results, FolderID: fID})
 		},
 	}
 

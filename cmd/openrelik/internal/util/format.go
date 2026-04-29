@@ -11,6 +11,19 @@ import (
 	"time"
 )
 
+// HumanRenderer is implemented by view types that know how to render themselves
+// in a minimal, high-signal format suited for interactive terminal use.
+type HumanRenderer interface {
+	RenderHuman(w io.Writer) error
+}
+
+// JSONUnwrapper is implemented by view types that wrap an underlying API struct.
+// formatAndPrint calls UnwrapJSON before serialising so the raw struct is emitted,
+// not the view wrapper.
+type JSONUnwrapper interface {
+	UnwrapJSON() any
+}
+
 // PrintStruct nicely prints the fields of a struct to stdout.
 func PrintStruct(s interface{}) {
 	FprintStruct(os.Stdout, s)
@@ -126,6 +139,14 @@ func FprintPropertyView(w io.Writer, s interface{}) {
 			label = "User ID"
 		case "IsDeleted":
 			label = "Deleted"
+		case "OriginalPath":
+			label = "Original Path"
+		case "AuthMethod":
+			label = "Auth Method"
+		case "IsAdmin":
+			label = "Admin"
+		case "SpecJSON":
+			label = "Spec JSON"
 		default:
 			label = field.Name
 		}
