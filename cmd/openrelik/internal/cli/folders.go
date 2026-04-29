@@ -14,9 +14,8 @@ import (
 )
 
 var (
-	parentID    int
-	displayName string
-	maxDepth    int
+	parentID int
+	maxDepth int
 )
 
 func newFolderCmd() *cobra.Command {
@@ -83,28 +82,30 @@ by a previous 'folder list' call.`,
 
 func newCreateFolderCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "create",
+		Use:   "create <NAME>",
 		Short: "Create a folder",
 		Long: `Create a new folder in OpenRelik.
 
 Without --parent, creates a root-level folder. With --parent, creates a
 subfolder inside the specified parent folder.`,
 		Example: `  # Create a root folder
-  openrelik folder create --name "Investigations"
+  openrelik folder create "Investigations"
 
   # Create a subfolder inside folder 42
-  openrelik folder create --name "Case 2024-001" --parent 42`,
+  openrelik folder create "Case 2024-001" --parent 42`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := newClient()
 			if err != nil {
 				return err
 			}
 
+			name := args[0]
 			var folder *openrelik.Folder
 			if parentID != 0 {
-				folder, _, err = client.Folders().CreateSubFolder(cmd.Context(), parentID, displayName)
+				folder, _, err = client.Folders().CreateSubFolder(cmd.Context(), parentID, name)
 			} else {
-				folder, _, err = client.Folders().CreateRootFolder(cmd.Context(), displayName)
+				folder, _, err = client.Folders().CreateRootFolder(cmd.Context(), name)
 			}
 
 			if err != nil {
@@ -115,9 +116,7 @@ subfolder inside the specified parent folder.`,
 		},
 	}
 
-	cmd.Flags().StringVarP(&displayName, "name", "n", "", "Folder name")
 	cmd.Flags().IntVarP(&parentID, "parent", "p", 0, "Parent folder ID")
-	cmd.MarkFlagRequired("name")
 	return cmd
 }
 
