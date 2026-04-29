@@ -28,23 +28,25 @@ func newWorkflowCreateCmd() *cobra.Command {
 	var fileIDs []int
 	var templateID int
 	var params string
+	var runAfter bool
 
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a new workflow",
 		Long: `Create a new workflow from one or more file IDs.
 
-At least one --file ID is required. The folder is resolved automatically
-from the first file if --folder is not specified. Use --template to base
-the workflow on an existing template.`,
-		Example: `  # Create a workflow from files 10 and 11
-  openrelik workflow create --file 10 --file 11
+At least one --file ID is required. A --template ID is required to define
+the workflow structure. The folder is resolved automatically from the first
+file if --folder is not specified. Use --run to execute the workflow
+immediately after creation.`,
+		Example: `  # Create a workflow from file 10 using template 5
+  openrelik workflow create --file 10 --template 5
+
+  # Create and run immediately
+  openrelik workflow create --file 10 --template 5 --run
 
   # Create in a specific folder
-  openrelik workflow create --file 10 --folder 42
-
-  # Create from a template
-  openrelik workflow create --file 10 --template 5`,
+  openrelik workflow create --file 10 --template 5 --folder 42`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(fileIDs) == 0 {
 				return fmt.Errorf("at least one file ID is required (use --file)")
@@ -62,14 +64,21 @@ the workflow on an existing template.`,
 				return err
 			}
 
-			var tID *int
-			if cmd.Flags().Changed("template") {
-				tID = &templateID
-			}
-
-			workflow, _, err := client.Workflows().Create(cmd.Context(), folderID, fileIDs, tID, parsedParams)
+			workflow, _, err := client.Workflows().Create(cmd.Context(), folderID, fileIDs, &templateID, parsedParams)
 			if err != nil {
 				return err
+			}
+
+			if runAfter {
+				var specPtr *string
+				if workflow.SpecJSON != nil {
+					specPtr = workflow.SpecJSON
+				}
+				workflow, _, err = client.Workflows().Run(cmd.Context(), workflow.Folder.ID, workflow.ID, specPtr)
+				if err != nil {
+					return err
+				}
+				return formatAndPrint(cmd, &view.WorkflowStartedView{Workflow: workflow})
 			}
 
 			return formatAndPrint(cmd, &view.WorkflowCreatedView{Workflow: workflow})
@@ -80,6 +89,9 @@ the workflow on an existing template.`,
 	cmd.Flags().IntSliceVarP(&fileIDs, "file", "i", nil, "File IDs to include (can be specified multiple times)")
 	cmd.Flags().IntVarP(&templateID, "template", "t", 0, "Template ID to use")
 	cmd.Flags().StringVarP(&params, "params", "p", "", "JSON string of parameters")
+	cmd.Flags().BoolVarP(&runAfter, "run", "r", false, "Run the workflow immediately after creation")
+
+	_ = cmd.MarkFlagRequired("template")
 
 	return cmd
 }
