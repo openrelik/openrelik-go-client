@@ -41,7 +41,11 @@ func TestWorkflowCmd(t *testing.T) {
 			return
 		}
 		if r.Method == http.MethodPost && r.URL.Path == "/api/v1/folders/1/workflows/" {
-			fmt.Fprintln(w, `{"id": 124, "display_name": "New Workflow"}`)
+			fmt.Fprintln(w, `{"id": 124, "display_name": "New Workflow", "folder": {"id": 1}}`)
+			return
+		}
+		if r.Method == http.MethodPost && r.URL.Path == "/api/v1/folders/1/workflows/124/run/" {
+			fmt.Fprintln(w, `{"id": 124, "display_name": "New Workflow Running"}`)
 			return
 		}
 
@@ -79,8 +83,13 @@ func TestWorkflowCmd(t *testing.T) {
 		},
 		{
 			name:     "create",
-			args:     []string{"workflow", "create", "--file", "456"},
+			args:     []string{"workflow", "create", "--file", "456", "--template", "5"},
 			expected: `"New Workflow" created (ID 124)`,
+		},
+		{
+			name:     "create-and-run",
+			args:     []string{"workflow", "create", "--file", "456", "--template", "5", "--run"},
+			expected: "New Workflow Running",
 		},
 	}
 

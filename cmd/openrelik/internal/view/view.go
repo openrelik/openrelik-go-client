@@ -143,6 +143,26 @@ func (v *WorkerListView) RenderHuman(w io.Writer) error {
 
 func (v *WorkerListView) UnwrapJSON() any { return v.Workers }
 
+// --- Templates ---
+
+// TemplateListView renders workflow templates as a table.
+type TemplateListView struct{ Templates []openrelik.WorkflowTemplate }
+
+func (v *TemplateListView) RenderHuman(w io.Writer) error {
+	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(tw, "ID\tDISPLAY NAME\tDESCRIPTION")
+	for _, t := range v.Templates {
+		desc := t.Description
+		if len(desc) > 60 {
+			desc = desc[:57] + "..."
+		}
+		fmt.Fprintf(tw, "%d\t%s\t%s\n", t.ID, t.DisplayName, desc)
+	}
+	return tw.Flush()
+}
+
+func (v *TemplateListView) UnwrapJSON() any { return v.Templates }
+
 // --- Workflows ---
 
 // WorkflowStatusView renders workflow status with a per-task breakdown table.
