@@ -51,6 +51,7 @@ type Workflow struct {
 type WorkflowTemplate struct {
 	ID          int    `json:"id"`
 	DisplayName string `json:"display_name"`
+	Description string `json:"description"`
 }
 
 // Task represents a task within a workflow.
