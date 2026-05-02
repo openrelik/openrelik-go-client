@@ -16,6 +16,7 @@ package cli
 
 import (
 	"github.com/openrelik/openrelik-go-client/cmd/cli/internal/config"
+	"github.com/openrelik/openrelik-go-client/cmd/cli/internal/util"
 	"github.com/openrelik/openrelik-go-client/cmd/cli/internal/view"
 	"github.com/spf13/cobra"
 )
@@ -44,6 +45,7 @@ This command also refreshes the local worker cache used to generate
 
   # Output as JSON
   openrelik worker list --format json`,
+		Args: util.UseArgs(),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := newClient()
 			if err != nil {

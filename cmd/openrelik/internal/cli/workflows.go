@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/openrelik/openrelik-go-client/cmd/cli/internal/util"
 	"github.com/openrelik/openrelik-go-client/cmd/cli/internal/view"
 	"github.com/spf13/cobra"
 )
@@ -47,6 +48,7 @@ immediately after creation.`,
 
   # Create in a specific folder
   openrelik workflow create --file 10 --template 5 --folder 42`,
+		Args: util.UseArgs(),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(fileIDs) == 0 {
 				return fmt.Errorf("at least one file ID is required (use --file)")
@@ -108,7 +110,7 @@ WORKFLOW_ID is the integer ID of the workflow.`,
 
   # Output as JSON
   openrelik workflow info 99 --format json`,
-		Args:  cobra.ExactArgs(1),
+		Args:  util.UseArgs(),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			wID, err := strconv.Atoi(args[0])
 			if err != nil {
@@ -142,7 +144,7 @@ WORKFLOW_ID is the integer ID of the workflow.`,
 
   # Poll status in a shell loop
   watch -n 5 openrelik workflow status 99`,
-		Args:  cobra.ExactArgs(1),
+		Args:  util.UseArgs(),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			wID, err := strconv.Atoi(args[0])
 			if err != nil {
@@ -199,7 +201,7 @@ monitor progress after starting.`,
 
   # Run with a custom spec
   openrelik workflow run 99 --spec '{"type":"chain","tasks":[]}'`,
-		Args:  cobra.ExactArgs(1),
+		Args:  util.UseArgs(),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			wID, err := strconv.Atoi(args[0])
 			if err != nil {

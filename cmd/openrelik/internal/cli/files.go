@@ -44,7 +44,7 @@ FOLDER_ID is the integer ID of the folder, as shown by 'folder list'.`,
 
   # Output as JSON
   openrelik file list 42 --format json`,
-		Args:  cobra.ExactArgs(1),
+		Args:  util.UseArgs(),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			fID, err := strconv.Atoi(args[0])
 			if err != nil {
@@ -79,7 +79,7 @@ ID is the integer file ID, as shown by 'file list'.`,
 
   # Output as JSON
   openrelik file info 123 --format json`,
-		Args:  cobra.ExactArgs(1),
+		Args:  util.UseArgs(),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			fileID, err := strconv.Atoi(args[0])
 			if err != nil {
@@ -119,7 +119,7 @@ its original filename. You will be prompted before overwriting an existing file.
 
   # Download into a directory (uses original filename)
   openrelik file download 123 ./output/`,
-		Args:         cobra.RangeArgs(1, 2),
+		Args:         util.UseArgs(),
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			fileID, err := strconv.Atoi(args[0])
@@ -273,7 +273,7 @@ file path and a folder ID are required.`,
 
   # Use a larger chunk size (bytes) for fast networks
   openrelik file upload large.bin 42 --chunk-size 8388608`,
-		Args:         cobra.MinimumNArgs(2),
+		Args:         util.UseArgs(),
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			fID, err := strconv.Atoi(args[len(args)-1])

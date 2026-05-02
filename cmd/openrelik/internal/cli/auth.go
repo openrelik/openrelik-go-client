@@ -7,6 +7,7 @@ import (
 	"syscall"
 
 	"github.com/openrelik/openrelik-go-client/cmd/cli/internal/config"
+	"github.com/openrelik/openrelik-go-client/cmd/cli/internal/util"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 )
@@ -42,6 +43,7 @@ stored credentials.`,
   # Non-interactive via environment variables
   export OPENRELIK_SERVER_URL=http://localhost:8710
   export OPENRELIK_API_KEY=your-refresh-token`,
+		Args: util.UseArgs(),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var server, key string
 
