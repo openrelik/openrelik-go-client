@@ -9,6 +9,7 @@ import (
 	"strconv"
 
 	openrelik "github.com/openrelik/openrelik-go-client"
+	"github.com/openrelik/openrelik-go-client/cmd/cli/internal/util"
 	"github.com/openrelik/openrelik-go-client/cmd/cli/internal/view"
 	"github.com/spf13/cobra"
 )
@@ -48,7 +49,7 @@ by a previous 'folder list' call.`,
 
   # Output as JSON
   openrelik folder list --format json`,
-		Args:  cobra.MaximumNArgs(1),
+		Args:  util.UseArgs(),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var pID int
 			var err error
@@ -93,7 +94,7 @@ subfolder inside the specified parent folder.`,
 
   # Create a subfolder inside folder 42
   openrelik folder create "Case 2024-001" --parent 42`,
-		Args: cobra.ExactArgs(1),
+		Args: util.UseArgs(),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := newClient()
 			if err != nil {
@@ -138,7 +139,7 @@ root folder named after the local directory is created automatically.`,
 
   # Mirror up to 5 levels deep with a larger chunk size
   openrelik folder mirror ./evidence/ 42 --depth 5 --chunk-size 8388608`,
-		Args:         cobra.RangeArgs(1, 2),
+		Args:         util.UseArgs(),
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			localPath := args[0]
