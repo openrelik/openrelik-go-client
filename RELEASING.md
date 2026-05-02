@@ -4,7 +4,7 @@ Releases are built with [GoReleaser](https://goreleaser.com) and published to
 [openrelik/openrelik-go-client](https://github.com/openrelik/openrelik-go-client/releases).
 A Homebrew cask is automatically pushed to
 [openrelik/homebrew-openrelik-cli](https://github.com/openrelik/homebrew-openrelik-cli)
-so users can install via `brew install --cask openrelik`.
+so users can install via `brew install --cask openrelik-cli`.
 
 ## Prerequisites
 
@@ -45,7 +45,7 @@ goreleaser release --clean
 GoReleaser will:
 - Build binaries for linux/darwin/windows (amd64 + arm64)
 - Create a GitHub Release with tarballs, zips, and `checksums.txt`
-- Push `Casks/openrelik.rb` to `openrelik/homebrew-openrelik-cli`
+- Push `Casks/openrelik-cli.rb` to `openrelik/homebrew-openrelik-cli`
 
 ## Local build (no publish)
 
@@ -59,18 +59,18 @@ Binaries are written to `dist/`. No tag required, nothing is published.
 
 ```bash
 brew tap openrelik/openrelik-cli
-brew install --cask openrelik
+brew install --cask openrelik-cli
 ```
 
 ## User upgrade
 
 ```bash
-brew update && brew upgrade --cask openrelik
+brew update && brew upgrade --cask openrelik-cli
 ```
 
 ## User uninstall
 
 ```bash
-brew uninstall --cask openrelik
+brew uninstall --cask openrelik-cli
 brew untap openrelik/openrelik-cli  # optional, removes the tap
 ```
