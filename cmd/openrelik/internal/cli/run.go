@@ -50,7 +50,7 @@ of the previous one):
 
 Run workers in parallel with --and (both receive the same input files):
 
-  openrelik run strings --and grep --regex "password" 123
+  openrelik run strings --and grep --rege∏x "password" 123
 
 Use --dry-run to preview the generated workflow spec without executing it.`,
 		TraverseChildren: true,
