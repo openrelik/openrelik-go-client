@@ -25,6 +25,7 @@ import (
 	"github.com/openrelik/openrelik-go-client"
 	"github.com/openrelik/openrelik-go-client/cmd/cli/internal/config"
 	"github.com/openrelik/openrelik-go-client/cmd/cli/internal/util"
+	"github.com/openrelik/openrelik-go-client/cmd/cli/internal/view"
 	"github.com/spf13/cobra"
 )
 
@@ -143,7 +144,7 @@ func createWorkerCmd(worker openrelik.Worker, allWorkers []openrelik.Worker) *co
 			dryRun, _ := cmd.Flags().GetBool("dry-run")
 			var downloadPolicy string
 
-			outputSpecified := outputFormat != "text"
+			outputSpecified := outputFormat != "human"
 			showProgress := !quiet && !outputSpecified
 
 			// Root workflow type is always 'chain'
@@ -234,8 +235,8 @@ func createWorkerCmd(worker openrelik.Worker, allWorkers []openrelik.Worker) *co
 				}
 			}
 
-			if outputFormat != "text" && fullWorkflow != nil {
-				return formatAndPrint(cmd, fullWorkflow)
+			if outputFormat != "human" && fullWorkflow != nil {
+				return formatAndPrint(cmd, &view.WorkflowInfoView{Workflow: fullWorkflow})
 			}
 
 			monitor.PrintSummary(startTime, totalUploaded, totalDownloaded)
