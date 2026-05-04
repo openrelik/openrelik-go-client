@@ -7,7 +7,7 @@ import (
 	"text/tabwriter"
 
 	openrelik "github.com/openrelik/openrelik-go-client"
-	"github.com/openrelik/openrelik-go-client/cmd/cli/internal/util"
+	"github.com/openrelik/openrelik-go-client/cmd/openrelik/internal/util"
 )
 
 // --- Files ---

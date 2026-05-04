@@ -1,4 +1,4 @@
-module github.com/openrelik/openrelik-go-client/cmd/cli
+module github.com/openrelik/openrelik-go-client/cmd/openrelik
 
 go 1.24.2
 

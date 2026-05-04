@@ -1,8 +1,8 @@
 package cli
 
 import (
-	"github.com/openrelik/openrelik-go-client/cmd/cli/internal/util"
-	"github.com/openrelik/openrelik-go-client/cmd/cli/internal/view"
+	"github.com/openrelik/openrelik-go-client/cmd/openrelik/internal/util"
+	"github.com/openrelik/openrelik-go-client/cmd/openrelik/internal/view"
 	"github.com/spf13/cobra"
 )
 
