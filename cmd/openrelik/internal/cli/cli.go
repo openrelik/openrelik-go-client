@@ -45,7 +45,12 @@ func NewRootCmd() *cobra.Command {
 	return cmd
 }
 
-func newClient() (*openrelik.Client, error) {
+// NewAPIClient can be replaced to customize how the API client is constructed:
+//
+//	cli.NewAPIClient = func() (*openrelik.Client, error) {
+//		return openrelik.NewClient(myURL, myKey, openrelik.WithHTTPClient(myHTTPClient))
+//	}
+var NewAPIClient = func() (*openrelik.Client, error) {
 	s := serverURL
 	if s == "" {
 		s = os.Getenv("OPENRELIK_SERVER_URL")
@@ -75,6 +80,8 @@ func newClient() (*openrelik.Client, error) {
 
 	return openrelik.NewClient(s, k)
 }
+
+func newClient() (*openrelik.Client, error) { return NewAPIClient() }
 
 // formatAndPrint outputs the result in the requested format.
 func formatAndPrint(cmd *cobra.Command, result interface{}) error {
