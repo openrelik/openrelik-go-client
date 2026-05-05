@@ -21,8 +21,8 @@ import (
 	"testing"
 
 	"github.com/openrelik/openrelik-go-client"
-	"github.com/openrelik/openrelik-go-client/cmd/openrelik/internal/config"
-	"github.com/openrelik/openrelik-go-client/cmd/openrelik/internal/util"
+	"github.com/openrelik/openrelik-go-client/cmd/openrelik/config"
+	"github.com/openrelik/openrelik-go-client/cmd/openrelik/util"
 )
 
 func TestDynamicWorkerCommands(t *testing.T) {

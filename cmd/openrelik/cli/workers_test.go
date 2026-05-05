@@ -23,7 +23,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/openrelik/openrelik-go-client/cmd/openrelik/internal/config"
+	"github.com/openrelik/openrelik-go-client/cmd/openrelik/config"
 )
 
 func TestWorkerListCmd(t *testing.T) {

@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/openrelik/openrelik-go-client/cmd/openrelik/internal/config"
+	"github.com/openrelik/openrelik-go-client/cmd/openrelik/config"
 )
 
 func TestNewClient(t *testing.T) {

@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/openrelik/openrelik-go-client/cmd/openrelik/internal/config"
+	"github.com/openrelik/openrelik-go-client/cmd/openrelik/config"
 )
 
 func TestLoginCmd(t *testing.T) {

@@ -5,8 +5,8 @@ import (
 	"os"
 
 	"github.com/openrelik/openrelik-go-client"
-	"github.com/openrelik/openrelik-go-client/cmd/openrelik/internal/config"
-	"github.com/openrelik/openrelik-go-client/cmd/openrelik/internal/util"
+	"github.com/openrelik/openrelik-go-client/cmd/openrelik/config"
+	"github.com/openrelik/openrelik-go-client/cmd/openrelik/util"
 	"github.com/spf13/cobra"
 )
 

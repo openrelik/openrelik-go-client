@@ -9,8 +9,8 @@ import (
 	"strconv"
 
 	openrelik "github.com/openrelik/openrelik-go-client"
-	"github.com/openrelik/openrelik-go-client/cmd/openrelik/internal/util"
-	"github.com/openrelik/openrelik-go-client/cmd/openrelik/internal/view"
+	"github.com/openrelik/openrelik-go-client/cmd/openrelik/util"
+	"github.com/openrelik/openrelik-go-client/cmd/openrelik/view"
 	"github.com/spf13/cobra"
 )
 
