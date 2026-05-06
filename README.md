@@ -125,7 +125,7 @@ fmt.Printf("File uploaded successfully! ID: %d\n", uploadedFile.ID)
 ```
 
 #### Upload with Progress Tracking
-You can provide a progress callback to track the upload status. This is ideal for CLI applications.
+You can provide a progress callback to track the upload status.
 
 ```go
 progress := func(bytesSent, totalBytes int64) {
