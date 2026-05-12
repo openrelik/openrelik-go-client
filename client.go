@@ -58,6 +58,10 @@ type Client struct {
 	// If 0, no limit is applied. Defaults to 10MB.
 	maxResponseSize int64
 
+	// initialAccessToken holds an optional pre-fetched access token
+	// to use without relying on the automatic refresh flow.
+	initialAccessToken string
+
 	// Services used for communicating with different parts of the OpenRelik API.
 	users     *UsersService
 	folders   *FoldersService
@@ -151,6 +155,16 @@ func WithVersion(version string) Option {
 	}
 }
 
+// WithAccessToken allows providing a short-lived access token directly.
+// If an access token is provided without an API key (refresh token),
+// automatic token refresh on 401 Unauthorized responses is disabled.
+func WithAccessToken(token string) Option {
+	return func(c *Client) error {
+		c.initialAccessToken = token
+		return nil
+	}
+}
+
 // NewClient initializes a new OpenRelik client with functional options.
 // apiServerURL: The root URL of the OpenRelik server (e.g., http://localhost:8710).
 // apiKey: The long-lived refresh token used for authentication.
@@ -193,11 +207,12 @@ func NewClient(apiServerURL, apiKey string, opts ...Option) (*Client, error) {
 	}
 
 	c.httpClient.Transport = &tokenRefreshTransport{
-		refreshURL: refreshURL,
-		host:       u.Host,
-		scheme:     u.Scheme,
-		apiKey:     apiKey,
-		base:       base,
+		refreshURL:  refreshURL,
+		host:        u.Host,
+		scheme:      u.Scheme,
+		apiKey:      apiKey,
+		accessToken: c.initialAccessToken,
+		base:        base,
 	}
 
 	// Initialize services
@@ -461,6 +476,12 @@ func (t *tokenRefreshTransport) RoundTrip(req *http.Request) (*http.Response, er
 
 	if resp.StatusCode == http.StatusUnauthorized && t.isOwnHost(req.URL) {
 		if req.URL.String() == t.refreshURL {
+			return resp, nil
+		}
+
+		// If no API key (refresh token) is configured, we cannot refresh.
+		// Return the 401 response directly.
+		if t.apiKey == "" {
 			return resp, nil
 		}
 

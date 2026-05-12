@@ -731,3 +731,83 @@ type RoundTripFunc func(req *http.Request) (*http.Response, error)
 func (f RoundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
 	return f(req)
 }
+
+func TestDirectAccessToken(t *testing.T) {
+	mux := http.NewServeMux()
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	var lastAccessToken string
+	var refreshCalled bool
+
+	mux.HandleFunc("/auth/refresh", func(w http.ResponseWriter, r *http.Request) {
+		refreshCalled = true
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{"new_access_token": "refreshed-token"}`)
+	})
+
+	mux.HandleFunc("/api/v1/resource", func(w http.ResponseWriter, r *http.Request) {
+		lastAccessToken = r.Header.Get(headerAccessToken)
+		if lastAccessToken == "expired-token" {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	})
+
+	ctx := context.Background()
+
+	t.Run("Use provided access token", func(t *testing.T) {
+		client, err := NewClient(server.URL, "", WithAccessToken("initial-token"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp, err := client.Get(ctx, "/resource", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+
+		if lastAccessToken != "initial-token" {
+			t.Errorf("Expected initial-token, got %s", lastAccessToken)
+		}
+	})
+
+	t.Run("Fail on 401 if no apiKey", func(t *testing.T) {
+		refreshCalled = false
+		client, err := NewClient(server.URL, "", WithAccessToken("expired-token"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp, err := client.Get(ctx, "/resource", nil)
+		if err == nil {
+			t.Fatal("Expected error for 401 without refresh key")
+		}
+		if resp.StatusCode != http.StatusUnauthorized {
+			t.Errorf("Expected 401 response, got %d", resp.StatusCode)
+		}
+		if refreshCalled {
+			t.Error("Refresh was called but no apiKey was provided")
+		}
+	})
+
+	t.Run("Refresh on 401 if apiKey is provided", func(t *testing.T) {
+		refreshCalled = false
+		client, err := NewClient(server.URL, "valid-refresh-key", WithAccessToken("expired-token"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp, err := client.Get(ctx, "/resource", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+
+		if !refreshCalled {
+			t.Error("Refresh was NOT called despite having an apiKey")
+		}
+		if lastAccessToken != "refreshed-token" {
+			t.Errorf("Expected refreshed-token, got %s", lastAccessToken)
+		}
+	})
+}
