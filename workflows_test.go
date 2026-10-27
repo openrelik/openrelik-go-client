@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -329,4 +330,34 @@ func TestWorkflowsService_Get(t *testing.T) {
 
 func stringPtr(s string) *string {
 	return &s
+}
+
+// TestCompactObjectsMarshalWithoutPlaceholders checks that fields the server
+// leaves out of compact objects stay out when the result is marshalled again,
+// instead of showing up as zero values such as "0001-01-01T00:00:00Z".
+func TestCompactObjectsMarshalWithoutPlaceholders(t *testing.T) {
+	// A workflow with the compact user, folder and file the server sends.
+	in := `{"id": 7, "created_at": "2026-01-02T03:04:05Z", "display_name": "Untitled workflow",
+		"user": {"id": 1, "display_name": "Dev", "username": "dev", "uuid": "u1", "profile_picture_url": null},
+		"folder": {"id": 3, "display_name": "Case A"},
+		"files": [{"id": 9, "display_name": "empty.bin", "filesize": 0}]}`
+	var wf Workflow
+	if err := json.Unmarshal([]byte(in), &wf); err != nil {
+		t.Fatal(err)
+	}
+	out, err := json.Marshal(wf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, placeholder := range []string{`"0001-01-01T00:00:00Z"`, `"auth_method"`, `"is_admin"`, `"is_deleted"`, `"uuid":""`, `"user_id"`} {
+		if strings.Contains(string(out), placeholder) {
+			t.Errorf("marshalled workflow contains %s:\n%s", placeholder, out)
+		}
+	}
+	// Real values are kept, including a size of 0.
+	for _, want := range []string{`"created_at":"2026-01-02T03:04:05Z"`, `"username":"dev"`, `"display_name":"Case A"`, `"filesize":0`} {
+		if !strings.Contains(string(out), want) {
+			t.Errorf("marshalled workflow lacks %s:\n%s", want, out)
+		}
+	}
 }

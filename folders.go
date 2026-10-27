@@ -31,15 +31,15 @@ type FoldersService struct {
 
 // Folder represents a folder within the OpenRelik system.
 type Folder struct {
-	ID          int        `json:"id"`
-	CreatedAt   time.Time  `json:"created_at"`
-	UpdatedAt   time.Time  `json:"updated_at"`
+	ID          int        `json:"id,omitzero"`
+	CreatedAt   time.Time  `json:"created_at,omitzero"`
+	UpdatedAt   time.Time  `json:"updated_at,omitzero"`
 	DeletedAt   *time.Time `json:"deleted_at"`
-	IsDeleted   bool       `json:"is_deleted"`
-	DisplayName string     `json:"display_name"`
+	IsDeleted   bool       `json:"is_deleted,omitzero"`
+	DisplayName string     `json:"display_name,omitempty"`
 	Description *string    `json:"description"`
-	UUID        string     `json:"uuid"`
-	User        User       `json:"user"`
+	UUID        string     `json:"uuid,omitempty"`
+	User        User       `json:"user,omitzero"`
 	Workflows   []any      `json:"workflows"`
 	// Parent is the folder's parent, with its own Parent set recursively up
 	// to the root. It is typically only populated by Get; list endpoints
@@ -49,15 +49,15 @@ type Folder struct {
 
 // FolderFile represents a compact file entry within a folder.
 type FolderFile struct {
-	ID          int       `json:"id"`
-	DisplayName string    `json:"display_name"`
+	ID          int       `json:"id,omitzero"`
+	DisplayName string    `json:"display_name,omitempty"`
 	Filesize    int64     `json:"filesize"`
-	DataType    string    `json:"data_type"`
-	MagicMime   string    `json:"magic_mime"`
-	User        User      `json:"user"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
-	IsDeleted   bool      `json:"is_deleted"`
+	DataType    string    `json:"data_type,omitempty"`
+	MagicMime   string    `json:"magic_mime,omitempty"`
+	User        User      `json:"user,omitzero"`
+	CreatedAt   time.Time `json:"created_at,omitzero"`
+	UpdatedAt   time.Time `json:"updated_at,omitzero"`
+	IsDeleted   bool      `json:"is_deleted,omitzero"`
 }
 
 type rootFoldersResponse struct {

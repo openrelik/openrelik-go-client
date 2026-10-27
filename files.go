@@ -32,30 +32,30 @@ type FilesService struct {
 
 // File represents a file within the OpenRelik system.
 type File struct {
-	ID              int        `json:"id"`
-	CreatedAt       time.Time  `json:"created_at"`
-	UpdatedAt       time.Time  `json:"updated_at"`
+	ID              int        `json:"id,omitzero"`
+	CreatedAt       time.Time  `json:"created_at,omitzero"`
+	UpdatedAt       time.Time  `json:"updated_at,omitzero"`
 	DeletedAt       *time.Time `json:"deleted_at"`
-	IsDeleted       bool       `json:"is_deleted"`
-	DisplayName     string     `json:"display_name"`
+	IsDeleted       bool       `json:"is_deleted,omitzero"`
+	DisplayName     string     `json:"display_name,omitempty"`
 	Description     *string    `json:"description"`
-	UUID            string     `json:"uuid"`
-	Filename        string     `json:"filename"`
+	UUID            string     `json:"uuid,omitempty"`
+	Filename        string     `json:"filename,omitempty"`
 	Filesize        int64      `json:"filesize"`
-	Extension       string     `json:"extension"`
+	Extension       string     `json:"extension,omitempty"`
 	OriginalPath    *string    `json:"original_path"`
-	MagicText       string     `json:"magic_text"`
-	MagicMime       string     `json:"magic_mime"`
-	DataType        string     `json:"data_type"`
-	HashMD5         string     `json:"hash_md5"`
-	HashSHA1        string     `json:"hash_sha1"`
-	HashSHA256      string     `json:"hash_sha256"`
+	MagicText       string     `json:"magic_text,omitempty"`
+	MagicMime       string     `json:"magic_mime,omitempty"`
+	DataType        string     `json:"data_type,omitempty"`
+	HashMD5         string     `json:"hash_md5,omitempty"`
+	HashSHA1        string     `json:"hash_sha1,omitempty"`
+	HashSHA256      string     `json:"hash_sha256,omitempty"`
 	HashSSDeep      *string    `json:"hash_ssdeep"`
 	StorageProvider *string    `json:"storage_provider"`
 	StorageKey      *string    `json:"storage_key"`
-	UserID          int        `json:"user_id"`
-	User            User       `json:"user"`
-	Folder          Folder     `json:"folder"`
+	UserID          int        `json:"user_id,omitzero"`
+	User            User       `json:"user,omitzero"`
+	Folder          Folder     `json:"folder,omitzero"`
 }
 
 // Info retrieves the metadata for a single file by ID.

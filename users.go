@@ -27,18 +27,18 @@ type UsersService struct {
 
 // User represents a user within the OpenRelik system.
 type User struct {
-	ID                int        `json:"id"`
-	CreatedAt         time.Time  `json:"created_at"`
-	UpdatedAt         time.Time  `json:"updated_at"`
+	ID                int        `json:"id,omitzero"`
+	CreatedAt         time.Time  `json:"created_at,omitzero"`
+	UpdatedAt         time.Time  `json:"updated_at,omitzero"`
 	DeletedAt         *time.Time `json:"deleted_at"`
-	IsDeleted         bool       `json:"is_deleted"`
-	DisplayName       string     `json:"display_name"`
-	Username          string     `json:"username"`
+	IsDeleted         bool       `json:"is_deleted,omitzero"`
+	DisplayName       string     `json:"display_name,omitempty"`
+	Username          string     `json:"username,omitempty"`
 	Email             *string    `json:"email"`
-	AuthMethod        string     `json:"auth_method"`
+	AuthMethod        string     `json:"auth_method,omitempty"`
 	ProfilePictureURL *string    `json:"profile_picture_url"`
-	UUID              string     `json:"uuid"`
-	IsAdmin           bool       `json:"is_admin"`
+	UUID              string     `json:"uuid,omitempty"`
+	IsAdmin           bool       `json:"is_admin,omitzero"`
 }
 
 // GetMe retrieves the profile of the currently authenticated user.
