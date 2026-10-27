@@ -31,39 +31,39 @@ type WorkflowsService struct {
 
 // Workflow represents a workflow within the OpenRelik system.
 type Workflow struct {
-	ID          int               `json:"id"`
-	CreatedAt   time.Time         `json:"created_at"`
-	UpdatedAt   time.Time         `json:"updated_at"`
+	ID          int               `json:"id,omitzero"`
+	CreatedAt   time.Time         `json:"created_at,omitzero"`
+	UpdatedAt   time.Time         `json:"updated_at,omitzero"`
 	DeletedAt   *time.Time        `json:"deleted_at"`
-	IsDeleted   bool              `json:"is_deleted"`
-	DisplayName string            `json:"display_name"`
+	IsDeleted   *bool             `json:"is_deleted,omitempty"` // nil if the server didn't send it
+	DisplayName string            `json:"display_name,omitempty"`
 	Description *string           `json:"description"`
 	SpecJSON    *string           `json:"spec_json"`
-	UUID        string            `json:"uuid"`
-	User        User              `json:"user"`
+	UUID        string            `json:"uuid,omitempty"`
+	User        User              `json:"user,omitzero"`
 	Files       []FolderFile      `json:"files"`
 	Tasks       []Task            `json:"tasks"`
-	Folder      Folder            `json:"folder"`
+	Folder      Folder            `json:"folder,omitzero"`
 	Template    *WorkflowTemplate `json:"template"`
 }
 
 // WorkflowTemplate represents a template used to create a workflow.
 type WorkflowTemplate struct {
-	ID          int    `json:"id"`
-	DisplayName string `json:"display_name"`
-	Description string `json:"description"`
+	ID          int    `json:"id,omitzero"`
+	DisplayName string `json:"display_name,omitempty"`
+	Description string `json:"description,omitempty"`
 }
 
 // Task represents a task within a workflow.
 type Task struct {
-	ID             int              `json:"id"`
-	CreatedAt      time.Time        `json:"created_at"`
-	UpdatedAt      time.Time        `json:"updated_at"`
+	ID             int              `json:"id,omitzero"`
+	CreatedAt      time.Time        `json:"created_at,omitzero"`
+	UpdatedAt      time.Time        `json:"updated_at,omitzero"`
 	DeletedAt      *time.Time       `json:"deleted_at"`
-	IsDeleted      bool             `json:"is_deleted"`
-	DisplayName    string           `json:"display_name"`
-	Description    string           `json:"description"`
-	UUID           string           `json:"uuid"`
+	IsDeleted      *bool            `json:"is_deleted,omitempty"` // nil if the server didn't send it
+	DisplayName    string           `json:"display_name,omitempty"`
+	Description    string           `json:"description,omitempty"`
+	UUID           string           `json:"uuid,omitempty"`
 	StatusShort    *string          `json:"status_short"`
 	StatusDetail   *string          `json:"status_detail"`
 	StatusProgress *string          `json:"status_progress"`
@@ -71,7 +71,7 @@ type Task struct {
 	Runtime        *float64         `json:"runtime"`
 	ErrorException *string          `json:"error_exception"`
 	ErrorTraceback *string          `json:"error_traceback"`
-	User           User             `json:"user"`
+	User           User             `json:"user,omitzero"`
 	OutputFiles    []TaskOutputFile `json:"output_files"`
 	FileReports    []any            `json:"file_reports"`
 	TaskReport     any              `json:"task_report"`
@@ -80,12 +80,12 @@ type Task struct {
 
 // TaskOutputFile represents a file produced by a task.
 type TaskOutputFile struct {
-	ID          int    `json:"id"`
-	DisplayName string `json:"display_name"`
+	ID          int    `json:"id,omitzero"`
+	DisplayName string `json:"display_name,omitempty"`
 	Filesize    int64  `json:"filesize"`
-	UUID        string `json:"uuid"`
-	FolderID    int    `json:"folder_id"`
-	IsDeleted   bool   `json:"is_deleted"`
+	UUID        string `json:"uuid,omitempty"`
+	FolderID    int    `json:"folder_id,omitzero"`
+	IsDeleted   *bool  `json:"is_deleted,omitempty"` // nil if the server didn't send it
 }
 
 // WorkflowStatus represents the status of a workflow and its tasks.
