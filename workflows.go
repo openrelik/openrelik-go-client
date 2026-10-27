@@ -35,7 +35,7 @@ type Workflow struct {
 	CreatedAt   time.Time         `json:"created_at,omitzero"`
 	UpdatedAt   time.Time         `json:"updated_at,omitzero"`
 	DeletedAt   *time.Time        `json:"deleted_at"`
-	IsDeleted   bool              `json:"is_deleted,omitzero"`
+	IsDeleted   *bool             `json:"is_deleted,omitempty"` // nil if the server didn't send it
 	DisplayName string            `json:"display_name,omitempty"`
 	Description *string           `json:"description"`
 	SpecJSON    *string           `json:"spec_json"`
@@ -60,7 +60,7 @@ type Task struct {
 	CreatedAt      time.Time        `json:"created_at,omitzero"`
 	UpdatedAt      time.Time        `json:"updated_at,omitzero"`
 	DeletedAt      *time.Time       `json:"deleted_at"`
-	IsDeleted      bool             `json:"is_deleted,omitzero"`
+	IsDeleted      *bool            `json:"is_deleted,omitempty"` // nil if the server didn't send it
 	DisplayName    string           `json:"display_name,omitempty"`
 	Description    string           `json:"description,omitempty"`
 	UUID           string           `json:"uuid,omitempty"`
@@ -85,7 +85,7 @@ type TaskOutputFile struct {
 	Filesize    int64  `json:"filesize"`
 	UUID        string `json:"uuid,omitempty"`
 	FolderID    int    `json:"folder_id,omitzero"`
-	IsDeleted   bool   `json:"is_deleted,omitzero"`
+	IsDeleted   *bool  `json:"is_deleted,omitempty"` // nil if the server didn't send it
 }
 
 // WorkflowStatus represents the status of a workflow and its tasks.

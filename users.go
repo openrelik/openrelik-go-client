@@ -31,14 +31,14 @@ type User struct {
 	CreatedAt         time.Time  `json:"created_at,omitzero"`
 	UpdatedAt         time.Time  `json:"updated_at,omitzero"`
 	DeletedAt         *time.Time `json:"deleted_at"`
-	IsDeleted         bool       `json:"is_deleted,omitzero"`
+	IsDeleted         *bool      `json:"is_deleted,omitempty"` // nil if the server didn't send it
 	DisplayName       string     `json:"display_name,omitempty"`
 	Username          string     `json:"username,omitempty"`
 	Email             *string    `json:"email"`
 	AuthMethod        string     `json:"auth_method,omitempty"`
 	ProfilePictureURL *string    `json:"profile_picture_url"`
 	UUID              string     `json:"uuid,omitempty"`
-	IsAdmin           bool       `json:"is_admin,omitzero"`
+	IsAdmin           *bool      `json:"is_admin,omitempty"` // nil if the server didn't send it
 }
 
 // GetMe retrieves the profile of the currently authenticated user.
