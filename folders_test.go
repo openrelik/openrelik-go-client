@@ -130,7 +130,7 @@ func TestFoldersService_ListRootFoldersPage(t *testing.T) {
 			fmt.Fprint(w, `{"folders": [{"id": 7, "display_name": "Seven"}], "page": 3, "page_size": 25, "total_count": 51}`)
 		})
 
-		page, _, err := client.Folders().ListRootFoldersPage(ctx, &ListOptions{Page: 3, PageSize: 25})
+		page, _, err := client.Folders().ListRootFoldersPage(ctx, &PageOptions{Page: 3, PageSize: 25})
 		if err != nil {
 			t.Fatalf("ListRootFoldersPage returned error: %v", err)
 		}
@@ -176,7 +176,7 @@ func TestFoldersService_SearchFolders(t *testing.T) {
 			fmt.Fprint(w, `{"folders": [{"id": 9, "display_name": "plaso run"}], "page": 2, "page_size": 50, "total_count": 51}`)
 		})
 
-		page, _, err := client.Folders().SearchFolders(ctx, "plaso run", &ListOptions{Page: 2, PageSize: 50})
+		page, _, err := client.Folders().SearchFolders(ctx, "plaso run", &PageOptions{Page: 2, PageSize: 50})
 		if err != nil {
 			t.Fatalf("SearchFolders returned error: %v", err)
 		}
@@ -189,8 +189,10 @@ func TestFoldersService_SearchFolders(t *testing.T) {
 		_, server, client := setupFoldersTestServer(t)
 		defer server.Close()
 
-		if _, _, err := client.Folders().SearchFolders(ctx, "", nil); err == nil {
-			t.Error("Expected error for empty query")
+		for _, query := range []string{"", "   "} {
+			if _, _, err := client.Folders().SearchFolders(ctx, query, nil); err == nil {
+				t.Errorf("Expected error for query %q", query)
+			}
 		}
 	})
 }

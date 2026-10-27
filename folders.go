@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -41,7 +42,8 @@ type Folder struct {
 	User        User       `json:"user"`
 	Workflows   []any      `json:"workflows"`
 	// Parent is the folder's parent, with its own Parent set recursively up
-	// to the root. It is only populated by Get.
+	// to the root. It is typically only populated by Get; list endpoints
+	// return compact folders without a parent.
 	Parent *Folder `json:"parent,omitempty"`
 }
 
@@ -65,8 +67,8 @@ type rootFoldersResponse struct {
 	TotalCount int      `json:"total_count"`
 }
 
-// ListOptions specifies pagination parameters for list methods that support it.
-type ListOptions struct {
+// PageOptions specifies pagination parameters for list methods that support it.
+type PageOptions struct {
 	// Page is the 1-based page number. Zero uses the server default.
 	Page int
 	// PageSize is the number of items per page. Zero uses the server default.
@@ -93,7 +95,7 @@ func (s *FoldersService) ListRootFolders(ctx context.Context) ([]Folder, *http.R
 
 // ListRootFoldersPage retrieves a single page of root folders. A nil opts uses
 // the server defaults.
-func (s *FoldersService) ListRootFoldersPage(ctx context.Context, opts *ListOptions) (*FolderPage, *http.Response, error) {
+func (s *FoldersService) ListRootFoldersPage(ctx context.Context, opts *PageOptions) (*FolderPage, *http.Response, error) {
 	return s.listAllFolders(ctx, "", opts)
 }
 
@@ -101,16 +103,16 @@ func (s *FoldersService) ListRootFoldersPage(ctx context.Context, opts *ListOpti
 // (case-insensitive). Unlike ListRootFoldersPage, it searches every folder
 // the user can access, including subfolders. A nil opts uses the server
 // defaults.
-func (s *FoldersService) SearchFolders(ctx context.Context, query string, opts *ListOptions) (*FolderPage, *http.Response, error) {
-	if query == "" {
-		return nil, nil, fmt.Errorf("search query must not be empty")
+func (s *FoldersService) SearchFolders(ctx context.Context, query string, opts *PageOptions) (*FolderPage, *http.Response, error) {
+	if strings.TrimSpace(query) == "" {
+		return nil, nil, fmt.Errorf("openrelik: search query must not be empty")
 	}
 	return s.listAllFolders(ctx, query, opts)
 }
 
 // listAllFolders calls the /folders/all/ endpoint, which lists root folders,
 // or searches all folders when query is set.
-func (s *FoldersService) listAllFolders(ctx context.Context, query string, opts *ListOptions) (*FolderPage, *http.Response, error) {
+func (s *FoldersService) listAllFolders(ctx context.Context, query string, opts *PageOptions) (*FolderPage, *http.Response, error) {
 	endpoint := "/folders/all/"
 	q := url.Values{}
 	if query != "" {
