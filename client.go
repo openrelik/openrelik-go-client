@@ -69,6 +69,7 @@ type Client struct {
 	workflows *WorkflowsService
 	workers   *WorkersService
 	templates *WorkflowTemplatesService
+	groups    *GroupsService
 }
 
 // Users returns the service for communicating with user-related methods of the OpenRelik API.
@@ -99,6 +100,11 @@ func (c *Client) Workers() *WorkersService {
 // Templates returns the service for communicating with workflow template methods of the OpenRelik API.
 func (c *Client) Templates() *WorkflowTemplatesService {
 	return c.templates
+}
+
+// Groups returns the service for communicating with group-related methods of the OpenRelik API.
+func (c *Client) Groups() *GroupsService {
+	return c.groups
 }
 
 // Option defines a functional option for configuring the Client.
@@ -222,6 +228,7 @@ func NewClient(apiServerURL, apiKey string, opts ...Option) (*Client, error) {
 	c.workflows = &WorkflowsService{client: c}
 	c.workers = &WorkersService{client: c}
 	c.templates = &WorkflowTemplatesService{client: c}
+	c.groups = &GroupsService{client: c}
 
 	return c, nil
 }

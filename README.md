@@ -194,6 +194,38 @@ for _, w := range workers {
 }
 ```
 
+### Sharing Folders
+
+Folders are shared with users and groups at a role (`RoleOwner`,
+`RoleEditor`, `RoleViewer` or `RoleNoAccess`). Access to a folder includes
+its subfolders and files.
+
+#### Share a Folder
+```go
+folder, _, err := client.Folders().Share(ctx, folderID, &openrelik.FolderShareRequest{
+    UserNames: []string{"alice"},
+    UserRole:  openrelik.RoleViewer,
+})
+if err != nil {
+    log.Fatal(err)
+}
+```
+
+#### List and Remove Roles
+```go
+folder, _, err := client.Folders().Get(ctx, folderID)
+if err != nil {
+    log.Fatal(err)
+}
+
+for _, r := range folder.UserRoles {
+    fmt.Printf("%s: %s\n", r.User.Username, r.Role)
+}
+
+// Roles are removed by role ID, not by user or group ID.
+_, err = client.Folders().DeleteUserRole(ctx, folderID, folder.UserRoles[0].ID)
+```
+
 ### Low-Level API
 
 For endpoints not yet covered by a typed service, you can use the low-level HTTP methods (`Get`, `Post`, `Put`, `Patch`, `Delete`). These methods handle authentication and automatic token refresh transparently.

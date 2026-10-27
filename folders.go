@@ -45,6 +45,10 @@ type Folder struct {
 	// to the root. It is typically only populated by Get; list endpoints
 	// return compact folders without a parent.
 	Parent *Folder `json:"parent,omitempty"`
+	// UserRoles and GroupRoles are the roles set on this folder itself, not
+	// those inherited from parent folders. Only Get and Share populate them.
+	UserRoles  []UserRole  `json:"user_roles,omitempty"`
+	GroupRoles []GroupRole `json:"group_roles,omitempty"`
 }
 
 // FolderFile represents a compact file entry within a folder.
