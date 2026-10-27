@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -109,6 +110,114 @@ func TestFoldersService_ListRootFolders(t *testing.T) {
 			t.Error("Expected error for 500 status code")
 		}
 	})
+}
+
+func TestFoldersService_ListRootFoldersPage(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("Sends pagination params", func(t *testing.T) {
+		mux, server, client := setupFoldersTestServer(t)
+		defer server.Close()
+
+		mux.HandleFunc("/api/v1/folders/all/", func(w http.ResponseWriter, r *http.Request) {
+			if got := r.URL.Query().Get("page"); got != "3" {
+				t.Errorf("Expected page=3, got %q", got)
+			}
+			if got := r.URL.Query().Get("page_size"); got != "25" {
+				t.Errorf("Expected page_size=25, got %q", got)
+			}
+			w.Header().Set("Content-Type", "application/json")
+			fmt.Fprint(w, `{"folders": [{"id": 7, "display_name": "Seven"}], "page": 3, "page_size": 25, "total_count": 51}`)
+		})
+
+		page, _, err := client.Folders().ListRootFoldersPage(ctx, &PageOptions{Page: 3, PageSize: 25})
+		if err != nil {
+			t.Fatalf("ListRootFoldersPage returned error: %v", err)
+		}
+		if len(page.Folders) != 1 || page.Folders[0].ID != 7 {
+			t.Errorf("Unexpected folders: %+v", page.Folders)
+		}
+		if page.Page != 3 || page.PageSize != 25 || page.TotalCount != 51 {
+			t.Errorf("Unexpected pagination metadata: %+v", page)
+		}
+	})
+
+	t.Run("Nil options omits params", func(t *testing.T) {
+		mux, server, client := setupFoldersTestServer(t)
+		defer server.Close()
+
+		mux.HandleFunc("/api/v1/folders/all/", func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.RawQuery != "" {
+				t.Errorf("Expected no query string, got %q", r.URL.RawQuery)
+			}
+			w.Header().Set("Content-Type", "application/json")
+			fmt.Fprint(w, `{"folders": [], "page": 1, "page_size": 40, "total_count": 0}`)
+		})
+
+		if _, _, err := client.Folders().ListRootFoldersPage(ctx, nil); err != nil {
+			t.Fatalf("ListRootFoldersPage returned error: %v", err)
+		}
+	})
+}
+
+func TestFoldersService_SearchFolders(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("Sends query and pagination params", func(t *testing.T) {
+		mux, server, client := setupFoldersTestServer(t)
+		defer server.Close()
+
+		mux.HandleFunc("/api/v1/folders/all/", func(w http.ResponseWriter, r *http.Request) {
+			q := r.URL.Query()
+			if q.Get("q") != "plaso run" || q.Get("page") != "2" || q.Get("page_size") != "50" {
+				t.Errorf("Unexpected query: %q", r.URL.RawQuery)
+			}
+			w.Header().Set("Content-Type", "application/json")
+			fmt.Fprint(w, `{"folders": [{"id": 9, "display_name": "plaso run"}], "page": 2, "page_size": 50, "total_count": 51}`)
+		})
+
+		page, _, err := client.Folders().SearchFolders(ctx, "plaso run", &PageOptions{Page: 2, PageSize: 50})
+		if err != nil {
+			t.Fatalf("SearchFolders returned error: %v", err)
+		}
+		if len(page.Folders) != 1 || page.Folders[0].ID != 9 || page.TotalCount != 51 {
+			t.Errorf("Unexpected page: %+v", page)
+		}
+	})
+
+	t.Run("Empty query", func(t *testing.T) {
+		_, server, client := setupFoldersTestServer(t)
+		defer server.Close()
+
+		for _, query := range []string{"", "   "} {
+			if _, _, err := client.Folders().SearchFolders(ctx, query, nil); err == nil {
+				t.Errorf("Expected error for query %q", query)
+			}
+		}
+	})
+}
+
+func TestFoldersService_Get(t *testing.T) {
+	ctx := context.Background()
+	mux, server, client := setupFoldersTestServer(t)
+	defer server.Close()
+
+	mux.HandleFunc("/api/v1/folders/3", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{"id": 3, "display_name": "extra", "parent": {"id": 2, "display_name": "logs", "parent": {"id": 1, "display_name": "case", "parent": null}}}`)
+	})
+
+	folder, _, err := client.Folders().Get(ctx, 3)
+	if err != nil {
+		t.Fatalf("Get returned error: %v", err)
+	}
+	var names []string
+	for f := folder; f != nil; f = f.Parent {
+		names = append(names, f.DisplayName)
+	}
+	if got := strings.Join(names, " < "); got != "extra < logs < case" {
+		t.Errorf("Unexpected parent chain: %s", got)
+	}
 }
 
 func TestFoldersService_ListSubFolders(t *testing.T) {

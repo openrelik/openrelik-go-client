@@ -16,9 +16,11 @@ package openrelik
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -39,6 +41,10 @@ type Folder struct {
 	UUID        string     `json:"uuid"`
 	User        User       `json:"user"`
 	Workflows   []any      `json:"workflows"`
+	// Parent is the folder's parent, with its own Parent set recursively up
+	// to the root. It is typically only populated by Get; list endpoints
+	// return compact folders without a parent.
+	Parent *Folder `json:"parent,omitempty"`
 }
 
 // FolderFile represents a compact file entry within a folder.
@@ -61,10 +67,70 @@ type rootFoldersResponse struct {
 	TotalCount int      `json:"total_count"`
 }
 
-// ListRootFolders retrieves a page of root folders.
-// TODO: Support pagination parameters in a future update.
+// PageOptions specifies pagination parameters for list methods that support it.
+type PageOptions struct {
+	// Page is the 1-based page number. Zero uses the server default.
+	Page int
+	// PageSize is the number of items per page. Zero uses the server default.
+	PageSize int
+}
+
+// FolderPage is a single page of folders along with pagination metadata.
+type FolderPage struct {
+	Folders    []Folder
+	Page       int
+	PageSize   int
+	TotalCount int
+}
+
+// ListRootFolders retrieves the first page of root folders using the server's
+// default page size. Use ListRootFoldersPage to control pagination.
 func (s *FoldersService) ListRootFolders(ctx context.Context) ([]Folder, *http.Response, error) {
-	req, err := s.client.NewRequest(ctx, http.MethodGet, "/folders/all/", nil)
+	page, resp, err := s.ListRootFoldersPage(ctx, nil)
+	if err != nil {
+		return nil, resp, err
+	}
+	return page.Folders, resp, nil
+}
+
+// ListRootFoldersPage retrieves a single page of root folders. A nil opts uses
+// the server defaults.
+func (s *FoldersService) ListRootFoldersPage(ctx context.Context, opts *PageOptions) (*FolderPage, *http.Response, error) {
+	return s.listAllFolders(ctx, "", opts)
+}
+
+// SearchFolders retrieves a single page of folders whose names contain query
+// (case-insensitive). Unlike ListRootFoldersPage, it searches every folder
+// the user can access, including subfolders. A nil opts uses the server
+// defaults.
+func (s *FoldersService) SearchFolders(ctx context.Context, query string, opts *PageOptions) (*FolderPage, *http.Response, error) {
+	if strings.TrimSpace(query) == "" {
+		return nil, nil, fmt.Errorf("openrelik: search query must not be empty")
+	}
+	return s.listAllFolders(ctx, query, opts)
+}
+
+// listAllFolders calls the /folders/all/ endpoint, which lists root folders,
+// or searches all folders when query is set.
+func (s *FoldersService) listAllFolders(ctx context.Context, query string, opts *PageOptions) (*FolderPage, *http.Response, error) {
+	endpoint := "/folders/all/"
+	q := url.Values{}
+	if query != "" {
+		q.Set("q", query)
+	}
+	if opts != nil {
+		if opts.Page > 0 {
+			q.Set("page", strconv.Itoa(opts.Page))
+		}
+		if opts.PageSize > 0 {
+			q.Set("page_size", strconv.Itoa(opts.PageSize))
+		}
+	}
+	if len(q) > 0 {
+		endpoint += "?" + q.Encode()
+	}
+
+	req, err := s.client.NewRequest(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -75,7 +141,33 @@ func (s *FoldersService) ListRootFolders(ctx context.Context) ([]Folder, *http.R
 		return nil, resp, err
 	}
 
-	return rootResp.Folders, resp, nil
+	return &FolderPage{
+		Folders:    rootResp.Folders,
+		Page:       rootResp.Page,
+		PageSize:   rootResp.PageSize,
+		TotalCount: rootResp.TotalCount,
+	}, resp, nil
+}
+
+// Get retrieves a single folder, including its chain of parent folders.
+func (s *FoldersService) Get(ctx context.Context, folderID int) (*Folder, *http.Response, error) {
+	endpoint, err := url.JoinPath("folders", strconv.Itoa(folderID))
+	if err != nil {
+		return nil, nil, err
+	}
+
+	req, err := s.client.NewRequest(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	folder := new(Folder)
+	resp, err := s.client.Do(req, folder)
+	if err != nil {
+		return nil, resp, err
+	}
+
+	return folder, resp, nil
 }
 
 // ListSubFolders retrieves subfolders for a given folder ID.
