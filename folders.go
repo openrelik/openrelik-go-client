@@ -125,6 +125,9 @@ type FolderPage struct {
 
 // ListRootFolders retrieves the first page of root folders using the server's
 // default page size. Use ListRootFoldersPage to control pagination.
+//
+// Root folders are the user's own top-level folders plus any folder shared
+// directly with the user, which may be a subfolder.
 func (s *FoldersService) ListRootFolders(ctx context.Context) ([]Folder, *http.Response, error) {
 	page, resp, err := s.ListRootFoldersPage(ctx, nil)
 	if err != nil {
@@ -133,19 +136,22 @@ func (s *FoldersService) ListRootFolders(ctx context.Context) ([]Folder, *http.R
 	return page.Folders, resp, nil
 }
 
-// ListRootFoldersPage retrieves a single page of root folders. A nil opts uses
-// the server defaults.
+// ListRootFoldersPage retrieves a single page of root folders (see
+// ListRootFolders for what counts as a root folder). A nil opts uses the
+// server defaults.
 func (s *FoldersService) ListRootFoldersPage(ctx context.Context, opts *PageOptions) (*FolderPage, *http.Response, error) {
 	return s.listAllFolders(ctx, "", opts)
 }
 
 // SearchFolders retrieves a single page of folders whose names contain query
-// (case-insensitive). Unlike ListRootFoldersPage, it searches every folder
-// the user can access, including subfolders. A nil opts uses the server
-// defaults. Sort, Order and After work as for ListRootFoldersPage; a cursor
-// only continues the search it came from.
+// (case-insensitive). Leading and trailing whitespace in query is ignored.
+// Unlike ListRootFoldersPage, it searches every folder the user can access,
+// including subfolders. A nil opts uses the server defaults. Sort, Order and
+// After work as for ListRootFoldersPage; a cursor only continues the search
+// it came from.
 func (s *FoldersService) SearchFolders(ctx context.Context, query string, opts *PageOptions) (*FolderPage, *http.Response, error) {
-	if strings.TrimSpace(query) == "" {
+	query = strings.TrimSpace(query)
+	if query == "" {
 		return nil, nil, fmt.Errorf("openrelik: search query must not be empty")
 	}
 	return s.listAllFolders(ctx, query, opts)
