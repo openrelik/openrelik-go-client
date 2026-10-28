@@ -16,6 +16,7 @@ package openrelik
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -69,22 +70,57 @@ type rootFoldersResponse struct {
 	Page       int      `json:"page"`
 	PageSize   int      `json:"page_size"`
 	TotalCount int      `json:"total_count"`
+	Sort       string   `json:"sort"`
+	Order      string   `json:"order"`
+	NextCursor string   `json:"next_cursor"`
 }
+
+// ErrCursorsUnsupported is returned when PageOptions.After is set but the
+// server doesn't support cursors (older servers). Such servers ignore the
+// cursor and return the first page, which would repeat folders.
+var ErrCursorsUnsupported = errors.New("openrelik: the server doesn't support cursors")
 
 // PageOptions specifies pagination parameters for list methods that support it.
 type PageOptions struct {
-	// Page is the 1-based page number. Zero uses the server default.
+	// Page is the 1-based page number. Zero uses the server default. Not
+	// sent when After is set.
 	Page int
 	// PageSize is the number of items per page. Zero uses the server default.
 	PageSize int
+	// Sort is the field to sort folders by, in lowercase: "created_at",
+	// "updated_at" or "display_name" (names are compared ignoring case).
+	// Empty uses the server default, created_at. Older servers ignore it;
+	// check FolderPage.Sort.
+	Sort string
+	// Order is "asc" or "desc". Empty uses the server default, desc.
+	Order string
+	// After continues a listing from the NextCursor of a previous page,
+	// requested with the same Sort and Order (and search query). Unlike page
+	// numbers, cursors don't skip or repeat folders created or deleted while
+	// paging. Servers that don't support cursors give ErrCursorsUnsupported.
+	After string
 }
 
 // FolderPage is a single page of folders along with pagination metadata.
 type FolderPage struct {
-	Folders    []Folder
-	Page       int
-	PageSize   int
+	Folders []Folder
+	// Page is the page number, zero for pages requested with
+	// PageOptions.After.
+	Page     int
+	PageSize int
+	// TotalCount is the number of folders in the listing. The server only
+	// counts them for requests without a cursor, so it is zero for pages
+	// requested with PageOptions.After.
 	TotalCount int
+	// Sort and Order are the order the server applied. They are empty when
+	// the server doesn't support sorting and cursors (older servers), in
+	// which case it ignored PageOptions.Sort, Order and After, and the
+	// folders are newest created first.
+	Sort  string
+	Order string
+	// NextCursor is the PageOptions.After for the next page, or empty on the
+	// last page and on servers that don't support cursors.
+	NextCursor string
 }
 
 // ListRootFolders retrieves the first page of root folders using the server's
@@ -106,7 +142,8 @@ func (s *FoldersService) ListRootFoldersPage(ctx context.Context, opts *PageOpti
 // SearchFolders retrieves a single page of folders whose names contain query
 // (case-insensitive). Unlike ListRootFoldersPage, it searches every folder
 // the user can access, including subfolders. A nil opts uses the server
-// defaults.
+// defaults. Sort, Order and After work as for ListRootFoldersPage; a cursor
+// only continues the search it came from.
 func (s *FoldersService) SearchFolders(ctx context.Context, query string, opts *PageOptions) (*FolderPage, *http.Response, error) {
 	if strings.TrimSpace(query) == "" {
 		return nil, nil, fmt.Errorf("openrelik: search query must not be empty")
@@ -123,11 +160,21 @@ func (s *FoldersService) listAllFolders(ctx context.Context, query string, opts 
 		q.Set("q", query)
 	}
 	if opts != nil {
-		if opts.Page > 0 {
+		// The cursor gives the position; a page number would contradict it.
+		if opts.Page > 0 && opts.After == "" {
 			q.Set("page", strconv.Itoa(opts.Page))
 		}
 		if opts.PageSize > 0 {
 			q.Set("page_size", strconv.Itoa(opts.PageSize))
+		}
+		if opts.Sort != "" {
+			q.Set("sort", opts.Sort)
+		}
+		if opts.Order != "" {
+			q.Set("order", opts.Order)
+		}
+		if opts.After != "" {
+			q.Set("after", opts.After)
 		}
 	}
 	if len(q) > 0 {
@@ -144,12 +191,21 @@ func (s *FoldersService) listAllFolders(ctx context.Context, query string, opts 
 	if err != nil {
 		return nil, resp, err
 	}
+	// Servers that support cursors echo the order they applied.
+	if opts != nil && opts.After != "" && rootResp.Sort == "" {
+		return nil, resp, ErrCursorsUnsupported
+	}
 
+	// JSON null (page and total_count with a cursor, next_cursor on the last
+	// page) leaves the zero value.
 	return &FolderPage{
 		Folders:    rootResp.Folders,
 		Page:       rootResp.Page,
 		PageSize:   rootResp.PageSize,
 		TotalCount: rootResp.TotalCount,
+		Sort:       rootResp.Sort,
+		Order:      rootResp.Order,
+		NextCursor: rootResp.NextCursor,
 	}, resp, nil
 }
 
