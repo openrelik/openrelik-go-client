@@ -16,6 +16,7 @@ package openrelik
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -142,6 +143,104 @@ func TestFoldersService_ListRootFoldersPage(t *testing.T) {
 		}
 	})
 
+	t.Run("Older server ignores sort and cursor", func(t *testing.T) {
+		mux, server, client := setupFoldersTestServer(t)
+		defer server.Close()
+
+		mux.HandleFunc("/api/v1/folders/all/", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			fmt.Fprint(w, `{"folders": [{"id": 7}], "page": 1, "page_size": 25, "total_count": 51}`)
+		})
+
+		page, _, err := client.Folders().ListRootFoldersPage(ctx, &PageOptions{PageSize: 25, Sort: "updated_at", Order: "asc"})
+		if err != nil {
+			t.Fatalf("ListRootFoldersPage returned error: %v", err)
+		}
+		if page.Sort != "" || page.Order != "" || page.NextCursor != "" || page.TotalCount != 51 {
+			t.Errorf("Unexpected pagination metadata: %+v", page)
+		}
+	})
+
+	t.Run("Sends sort, order and cursor", func(t *testing.T) {
+		mux, server, client := setupFoldersTestServer(t)
+		defer server.Close()
+
+		mux.HandleFunc("/api/v1/folders/all/", func(w http.ResponseWriter, r *http.Request) {
+			q := r.URL.Query()
+			if q.Get("sort") != "updated_at" || q.Get("order") != "asc" || q.Get("after") != "abc=" || q.Get("page_size") != "1000" {
+				t.Errorf("Unexpected query: %q", r.URL.RawQuery)
+			}
+			w.Header().Set("Content-Type", "application/json")
+			fmt.Fprint(w, `{"folders": [{"id": 7}], "page": null, "page_size": 1000, "total_count": null, "sort": "updated_at", "order": "asc", "next_cursor": "def="}`)
+		})
+
+		page, _, err := client.Folders().ListRootFoldersPage(ctx, &PageOptions{PageSize: 1000, Sort: "updated_at", Order: "asc", After: "abc="})
+		if err != nil {
+			t.Fatalf("ListRootFoldersPage returned error: %v", err)
+		}
+		if page.Sort != "updated_at" || page.Order != "asc" || page.NextCursor != "def=" || page.TotalCount != 0 || page.Page != 0 {
+			t.Errorf("Unexpected pagination metadata: %+v", page)
+		}
+	})
+
+	t.Run("Cursor leaves out the page number", func(t *testing.T) {
+		mux, server, client := setupFoldersTestServer(t)
+		defer server.Close()
+
+		mux.HandleFunc("/api/v1/folders/all/", func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Query().Has("page") {
+				t.Errorf("Expected no page with a cursor, got %q", r.URL.RawQuery)
+			}
+			w.Header().Set("Content-Type", "application/json")
+			fmt.Fprint(w, `{"folders": [], "page": null, "page_size": 40, "total_count": null, "sort": "created_at", "order": "desc", "next_cursor": null}`)
+		})
+
+		if _, _, err := client.Folders().ListRootFoldersPage(ctx, &PageOptions{Page: 3, After: "abc="}); err != nil {
+			t.Fatalf("ListRootFoldersPage returned error: %v", err)
+		}
+	})
+
+	t.Run("Cursor to an older server is an error", func(t *testing.T) {
+		mux, server, client := setupFoldersTestServer(t)
+		defer server.Close()
+
+		// Older servers ignore after and return the first page.
+		mux.HandleFunc("/api/v1/folders/all/", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			fmt.Fprint(w, `{"folders": [{"id": 7}], "page": 1, "page_size": 40, "total_count": 51}`)
+		})
+
+		page, resp, err := client.Folders().ListRootFoldersPage(ctx, &PageOptions{After: "abc="})
+		if !errors.Is(err, ErrCursorsUnsupported) {
+			t.Errorf("Expected ErrCursorsUnsupported, got %v", err)
+		}
+		if page != nil {
+			t.Errorf("Expected no page, got %+v", page)
+		}
+		// Like other errors after a response, the response is still returned.
+		if resp == nil || resp.StatusCode != http.StatusOK {
+			t.Errorf("Expected the server's 200 response, got %v", resp)
+		}
+	})
+
+	t.Run("Last page has no cursor", func(t *testing.T) {
+		mux, server, client := setupFoldersTestServer(t)
+		defer server.Close()
+
+		mux.HandleFunc("/api/v1/folders/all/", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			fmt.Fprint(w, `{"folders": [], "page": 1, "page_size": 40, "total_count": 3, "sort": "created_at", "order": "desc", "next_cursor": null}`)
+		})
+
+		page, _, err := client.Folders().ListRootFoldersPage(ctx, nil)
+		if err != nil {
+			t.Fatalf("ListRootFoldersPage returned error: %v", err)
+		}
+		if page.NextCursor != "" || page.TotalCount != 3 || page.Sort != "created_at" {
+			t.Errorf("Unexpected pagination metadata: %+v", page)
+		}
+	})
+
 	t.Run("Nil options omits params", func(t *testing.T) {
 		mux, server, client := setupFoldersTestServer(t)
 		defer server.Close()
@@ -181,6 +280,28 @@ func TestFoldersService_SearchFolders(t *testing.T) {
 			t.Fatalf("SearchFolders returned error: %v", err)
 		}
 		if len(page.Folders) != 1 || page.Folders[0].ID != 9 || page.TotalCount != 51 {
+			t.Errorf("Unexpected page: %+v", page)
+		}
+	})
+
+	t.Run("Sends sort, order and cursor", func(t *testing.T) {
+		mux, server, client := setupFoldersTestServer(t)
+		defer server.Close()
+
+		mux.HandleFunc("/api/v1/folders/all/", func(w http.ResponseWriter, r *http.Request) {
+			q := r.URL.Query()
+			if q.Get("q") != "plaso" || q.Get("sort") != "display_name" || q.Get("order") != "asc" || q.Get("after") != "abc=" {
+				t.Errorf("Unexpected query: %q", r.URL.RawQuery)
+			}
+			w.Header().Set("Content-Type", "application/json")
+			fmt.Fprint(w, `{"folders": [{"id": 9}], "page": null, "page_size": 40, "total_count": null, "sort": "display_name", "order": "asc", "next_cursor": "def="}`)
+		})
+
+		page, _, err := client.Folders().SearchFolders(ctx, "plaso", &PageOptions{Sort: "display_name", Order: "asc", After: "abc="})
+		if err != nil {
+			t.Fatalf("SearchFolders returned error: %v", err)
+		}
+		if page.Sort != "display_name" || page.NextCursor != "def=" {
 			t.Errorf("Unexpected page: %+v", page)
 		}
 	})
