@@ -306,6 +306,23 @@ func TestFoldersService_SearchFolders(t *testing.T) {
 		}
 	})
 
+	t.Run("Nil options sends only trimmed query", func(t *testing.T) {
+		mux, server, client := setupFoldersTestServer(t)
+		defer server.Close()
+
+		mux.HandleFunc("/api/v1/folders/all/", func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.RawQuery != "q=plaso" {
+				t.Errorf("Expected query %q, got %q", "q=plaso", r.URL.RawQuery)
+			}
+			w.Header().Set("Content-Type", "application/json")
+			fmt.Fprint(w, `{"folders": [], "page": 1, "page_size": 40, "total_count": 0}`)
+		})
+
+		if _, _, err := client.Folders().SearchFolders(ctx, "  plaso ", nil); err != nil {
+			t.Fatalf("SearchFolders returned error: %v", err)
+		}
+	})
+
 	t.Run("Empty query", func(t *testing.T) {
 		_, server, client := setupFoldersTestServer(t)
 		defer server.Close()
