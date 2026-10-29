@@ -131,7 +131,7 @@ func TestFoldersService_GetCaseFolder(t *testing.T) {
 	}{
 		{"Case not found", http.StatusNotFound, `{"detail": "Case not found."}`, false},
 		{"Older server", http.StatusNotFound, `{"detail": "Not Found"}`, true},
-		{"Older server behind a proxy", http.StatusNotFound, `<html>404</html>`, true},
+		{"Proxy page for a wrong server URL", http.StatusNotFound, `<html>404</html>`, false},
 		{"Invalid reference", http.StatusUnprocessableEntity, `{"detail": "bad"}`, false},
 	}
 	for _, tt := range tests {

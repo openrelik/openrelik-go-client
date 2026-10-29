@@ -34,10 +34,11 @@ import (
 var ErrCaseFoldersUnsupported = errors.New("openrelik: the server doesn't support case folders")
 
 // caseFoldersUnsupported reports whether err is the response of a server
-// without the case folder endpoints: a 404 for an unknown route, or a 405
-// when the route exists for other methods. Servers that support case folders
-// say what wasn't found ("Case not found.", "Folder not found."), never just
-// "Not Found".
+// without the case folder endpoints: a 404 with the server's message for an
+// unknown route ("Not Found"), or a 405 when the route exists for other
+// methods. Servers that support case folders say what wasn't found ("Case not
+// found.", "Folder not found."). Other 404s, such as a proxy's HTML page for
+// a wrong server URL, don't come from the server and stay plain 404s.
 func caseFoldersUnsupported(err error) bool {
 	var apiErr *Error
 	if !errors.As(err, &apiErr) {
@@ -47,7 +48,7 @@ func caseFoldersUnsupported(err error) bool {
 	case http.StatusMethodNotAllowed:
 		return true
 	case http.StatusNotFound:
-		return apiErr.Message == "" || apiErr.Message == "Not Found"
+		return apiErr.Message == "Not Found"
 	}
 	return false
 }
