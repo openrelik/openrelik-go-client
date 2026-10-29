@@ -42,6 +42,9 @@ type Folder struct {
 	UUID        string     `json:"uuid,omitempty"`
 	User        User       `json:"user,omitzero"`
 	Workflows   []any      `json:"workflows"`
+	// CaseRef is the case reference of a case folder (see GetCaseFolder),
+	// empty for other folders and on servers without case folders.
+	CaseRef string `json:"case_ref,omitempty"`
 	// Parent is the folder's parent, with its own Parent set recursively up
 	// to the root. It is typically only populated by Get; list endpoints
 	// return compact folders without a parent.
@@ -280,10 +283,18 @@ func (s *FoldersService) ListFiles(ctx context.Context, folderID int) ([]FolderF
 
 // CreateRootFolder creates a new root folder.
 func (s *FoldersService) CreateRootFolder(ctx context.Context, displayName string) (*Folder, *http.Response, error) {
+	return s.createRootFolder(ctx, displayName, "")
+}
+
+// createRootFolder creates a new root folder, the case folder of caseRef
+// unless it is empty.
+func (s *FoldersService) createRootFolder(ctx context.Context, displayName, caseRef string) (*Folder, *http.Response, error) {
 	body := struct {
 		DisplayName string `json:"display_name"`
+		CaseRef     string `json:"case_ref,omitempty"`
 	}{
 		DisplayName: displayName,
+		CaseRef:     caseRef,
 	}
 
 	req, err := s.client.NewRequest(ctx, http.MethodPost, "/folders/", body)

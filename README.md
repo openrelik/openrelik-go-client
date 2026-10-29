@@ -226,6 +226,38 @@ for _, r := range folder.UserRoles {
 _, err = client.Folders().DeleteUserRole(ctx, folderID, folder.UserRoles[0].ID)
 ```
 
+### Case Folders
+
+A case folder is the one root folder of a case, found by its case reference
+(`Folder.CaseRef`). The server allows at most one folder per reference and
+normalizes references, so `"CASE 123"` and `"case-123"` are the same case.
+
+#### Create or Find a Case Folder
+```go
+folder, _, err := client.Folders().GetCaseFolder(ctx, "case-123")
+if errors.Is(err, openrelik.ErrCaseFoldersUnsupported) {
+    // Check this first: older servers also answer 404.
+    log.Fatal("the server doesn't support case folders")
+}
+var apiErr *openrelik.Error
+if errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusNotFound {
+    // No such case, or one you can't access: creating it gives 409 Conflict
+    // if it exists.
+    folder, _, err = client.Folders().CreateCaseFolder(ctx, "case-123", "ACME ransomware")
+}
+if err != nil {
+    log.Fatal(err)
+}
+fmt.Printf("Case %s: folder %d\n", folder.CaseRef, folder.ID)
+```
+
+#### Mark or Unmark a Root Folder
+```go
+folder, _, err := client.Folders().SetCaseRef(ctx, folderID, "case-123")
+
+_, err = client.Folders().ClearCaseRef(ctx, folderID)
+```
+
 ### Low-Level API
 
 For endpoints not yet covered by a typed service, you can use the low-level HTTP methods (`Get`, `Post`, `Put`, `Patch`, `Delete`). These methods handle authentication and automatic token refresh transparently.
