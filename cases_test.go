@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 )
 
@@ -175,6 +176,36 @@ func TestFoldersService_GetCaseFolder(t *testing.T) {
 			"/api/v1/folders/case/case%3F1",
 			"/api/v1/folders/case/case%231",
 			"/api/v1/folders/case/a%252Fb",
+		}
+		if fmt.Sprint(paths) != fmt.Sprint(want) {
+			t.Errorf("Unexpected paths:\n got %v\nwant %v", paths, want)
+		}
+	})
+
+	t.Run("Escapes the reference under a base path", func(t *testing.T) {
+		mux := http.NewServeMux()
+		server := httptest.NewServer(mux)
+		defer server.Close()
+		client, err := NewClient(server.URL+"/openrelik", "test-key")
+		if err != nil {
+			t.Fatalf("failed to create test client: %v", err)
+		}
+
+		var paths []string
+		mux.HandleFunc("/openrelik/api/v1/folders/case/", func(w http.ResponseWriter, r *http.Request) {
+			paths = append(paths, r.URL.EscapedPath())
+			w.Header().Set("Content-Type", "application/json")
+			fmt.Fprint(w, `{"id": 42, "case_ref": "x"}`)
+		})
+
+		for _, ref := range []string{"IR 2024/007", "50%off"} {
+			if _, _, err := client.Folders().GetCaseFolder(ctx, ref); err != nil {
+				t.Errorf("%q: %v", ref, err)
+			}
+		}
+		want := []string{
+			"/openrelik/api/v1/folders/case/IR%202024/007",
+			"/openrelik/api/v1/folders/case/50%25off",
 		}
 		if fmt.Sprint(paths) != fmt.Sprint(want) {
 			t.Errorf("Unexpected paths:\n got %v\nwant %v", paths, want)
