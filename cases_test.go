@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"testing"
 )
 
@@ -177,7 +178,7 @@ func TestFoldersService_GetCaseFolder(t *testing.T) {
 			"/api/v1/folders/case/case%231",
 			"/api/v1/folders/case/a%252Fb",
 		}
-		if fmt.Sprint(paths) != fmt.Sprint(want) {
+		if !slices.Equal(paths, want) {
 			t.Errorf("Unexpected paths:\n got %v\nwant %v", paths, want)
 		}
 	})
@@ -207,7 +208,7 @@ func TestFoldersService_GetCaseFolder(t *testing.T) {
 			"/openrelik/api/v1/folders/case/IR%202024/007",
 			"/openrelik/api/v1/folders/case/50%25off",
 		}
-		if fmt.Sprint(paths) != fmt.Sprint(want) {
+		if !slices.Equal(paths, want) {
 			t.Errorf("Unexpected paths:\n got %v\nwant %v", paths, want)
 		}
 	})
