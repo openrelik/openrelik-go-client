@@ -309,6 +309,22 @@ func TestFoldersService_SetCaseRef(t *testing.T) {
 	}
 }
 
+func TestFoldersService_SetCaseRef_NoCaseRefInResponse(t *testing.T) {
+	ctx := context.Background()
+	mux, server, client := setupFoldersTestServer(t)
+	defer server.Close()
+
+	mux.HandleFunc("/api/v1/folders/42/case", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{"id": 42, "display_name": "ACME"}`)
+	})
+
+	folder, _, err := client.Folders().SetCaseRef(ctx, 42, "case-123")
+	if !errors.Is(err, ErrCaseFoldersUnsupported) || folder != nil {
+		t.Errorf("Expected ErrCaseFoldersUnsupported and no folder, got %v, %+v", err, folder)
+	}
+}
+
 func TestFoldersService_ClearCaseRef(t *testing.T) {
 	ctx := context.Background()
 

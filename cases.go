@@ -164,6 +164,9 @@ func (s *FoldersService) SetCaseRef(ctx context.Context, folderID int, caseRef s
 	if err != nil {
 		return nil, resp, caseError(err)
 	}
+	if folder.CaseRef == "" {
+		return nil, resp, ErrCaseFoldersUnsupported
+	}
 
 	return folder, resp, nil
 }
