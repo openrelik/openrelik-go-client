@@ -442,6 +442,7 @@ func TestFoldersService_ListFiles(t *testing.T) {
 				{
 					"id": 3,
 					"display_name": "artifact_disk.dd",
+					"original_path": "evidence/artifact_disk.dd",
 					"filesize": 20971520,
 					"data_type": "file:generic",
 					"magic_mime": "application/octet-stream",
@@ -478,6 +479,10 @@ func TestFoldersService_ListFiles(t *testing.T) {
 
 		if files[0].DisplayName != "artifact_disk.dd" {
 			t.Errorf("Expected display name 'artifact_disk.dd', got %q", files[0].DisplayName)
+		}
+
+		if files[0].OriginalPath == nil || *files[0].OriginalPath != "evidence/artifact_disk.dd" {
+			t.Errorf("Expected original path 'evidence/artifact_disk.dd', got %v", files[0].OriginalPath)
 		}
 	})
 
