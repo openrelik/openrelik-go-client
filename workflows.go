@@ -84,8 +84,11 @@ type TaskOutputFile struct {
 	DisplayName string `json:"display_name,omitempty"`
 	Filesize    int64  `json:"filesize"`
 	UUID        string `json:"uuid,omitempty"`
-	FolderID    int    `json:"folder_id,omitzero"`
-	IsDeleted   *bool  `json:"is_deleted,omitempty"` // nil if the server didn't send it
+	// OriginalPath is where the file was found, e.g. inside a disk image.
+	// nil if the file has none or the server doesn't send it.
+	OriginalPath *string `json:"original_path,omitempty"`
+	FolderID     int     `json:"folder_id,omitzero"`
+	IsDeleted    *bool   `json:"is_deleted,omitempty"` // nil if the server didn't send it
 }
 
 // WorkflowStatus represents the status of a workflow and its tasks.

@@ -57,15 +57,18 @@ type Folder struct {
 
 // FolderFile represents a compact file entry within a folder.
 type FolderFile struct {
-	ID          int       `json:"id,omitzero"`
-	DisplayName string    `json:"display_name,omitempty"`
-	Filesize    int64     `json:"filesize"`
-	DataType    string    `json:"data_type,omitempty"`
-	MagicMime   string    `json:"magic_mime,omitempty"`
-	User        User      `json:"user,omitzero"`
-	CreatedAt   time.Time `json:"created_at,omitzero"`
-	UpdatedAt   time.Time `json:"updated_at,omitzero"`
-	IsDeleted   *bool     `json:"is_deleted,omitempty"` // nil if the server didn't send it
+	ID          int    `json:"id,omitzero"`
+	DisplayName string `json:"display_name,omitempty"`
+	Filesize    int64  `json:"filesize"`
+	// OriginalPath is where the file was found, e.g. inside a disk image.
+	// nil if the file has none or the server doesn't send it.
+	OriginalPath *string   `json:"original_path,omitempty"`
+	DataType     string    `json:"data_type,omitempty"`
+	MagicMime    string    `json:"magic_mime,omitempty"`
+	User         User      `json:"user,omitzero"`
+	CreatedAt    time.Time `json:"created_at,omitzero"`
+	UpdatedAt    time.Time `json:"updated_at,omitzero"`
+	IsDeleted    *bool     `json:"is_deleted,omitempty"` // nil if the server didn't send it
 }
 
 type rootFoldersResponse struct {

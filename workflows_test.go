@@ -328,6 +328,37 @@ func TestWorkflowsService_Get(t *testing.T) {
 	}
 }
 
+// TestWorkflowFilesOriginalPath checks that input and output files keep the
+// path the server reports, and leave it out when the server sends none.
+func TestWorkflowFilesOriginalPath(t *testing.T) {
+	in := `{"id": 7,
+		"files": [{"id": 9, "display_name": ".bash_history", "original_path": "root/.bash_history"}],
+		"tasks": [{"id": 1, "output_files": [
+			{"id": 10, "display_name": ".bash_history", "original_path": "home/ubuntu/.bash_history"},
+			{"id": 11, "display_name": "report.md", "original_path": null}]}]}`
+	var wf Workflow
+	if err := json.Unmarshal([]byte(in), &wf); err != nil {
+		t.Fatal(err)
+	}
+	if p := wf.Files[0].OriginalPath; p == nil || *p != "root/.bash_history" {
+		t.Errorf("input file original path = %v, want root/.bash_history", p)
+	}
+	out := wf.Tasks[0].OutputFiles
+	if p := out[0].OriginalPath; p == nil || *p != "home/ubuntu/.bash_history" {
+		t.Errorf("output file original path = %v, want home/ubuntu/.bash_history", p)
+	}
+	if out[1].OriginalPath != nil {
+		t.Errorf("output file without a path got %q", *out[1].OriginalPath)
+	}
+	b, err := json.Marshal(out[1])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(b), "original_path") {
+		t.Errorf("marshalled file without a path contains original_path: %s", b)
+	}
+}
+
 func stringPtr(s string) *string {
 	return &s
 }
